@@ -25,6 +25,27 @@ class ColumnType(str, Enum):
     VARIANT = "VARIANT"
     ARRAY = "ARRAY"
     OBJECT = "OBJECT"
+    TEXT = "TEXT"
+
+    def __call__(self, *args: Union[int, str]) -> str:
+        """
+        Allows parameterized column types like STRING(255) or NUMBER(10,2).
+
+        Args:
+            *args: Variable length arguments for type parameters
+                  (e.g., length for STRING, precision and scale for NUMBER)
+
+        Returns:
+            str: Formatted column type with parameters
+        """
+        if not args:
+            return str(self.value)
+
+        params = ",".join(str(arg) for arg in args)
+        return f"{self.value}({params})"
+
+    def __str__(self) -> str:
+        return self.value
 
 
 @dataclass
@@ -32,7 +53,9 @@ class Column:
     """Represents a table column definition."""
 
     name: str
-    data_type: ColumnType
+    data_type: Union[
+        ColumnType, str
+    ]  # Can be either ColumnType or parameterized string
     nullable: bool = True
     default: Optional[str] = None
     identity: bool = False
@@ -43,7 +66,13 @@ class Column:
     collate: Optional[str] = None
 
     def to_sql(self) -> str:
-        parts = [self.name, self.data_type]
+        parts = [self.name]
+
+        # Handle both plain ColumnType and parameterized types
+        if isinstance(self.data_type, ColumnType):
+            parts.append(str(self.data_type))
+        else:
+            parts.append(self.data_type)
 
         if not self.nullable:
             parts.append("NOT NULL")
