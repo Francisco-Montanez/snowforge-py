@@ -195,92 +195,47 @@ class Stage:
     various parameters for configuration.
     """
 
-    name: str
-    stage_params: Optional[
-        Union[
-            InternalStageParams,
-            S3ExternalStageParams,
-            S3CompatibleExternalStageParams,
-            GCSExternalStageParams,
-            AzureExternalStageParams,
-        ]
-    ] = None
-    directory_table_params: Optional[
-        Union[
-            InternalDirectoryTableParams,
-            S3DirectoryTableParams,
-            GCSDirectoryTableParams,
-            AzureDirectoryTableParams,
-        ]
-    ] = None
-    file_format: Optional[FileFormatSpecification] = None
-    comment: Optional[str] = None
-    tags: Dict[str, str] = field(default_factory=dict)
-    is_create_or_replace: bool = False
-    is_create_if_not_exists: bool = False
-    is_temporary: bool = False
+    def __init__(
+        self,
+        name: str,
+        stage_params: Optional[
+            Union[
+                InternalStageParams,
+                S3ExternalStageParams,
+                S3CompatibleExternalStageParams,
+                GCSExternalStageParams,
+                AzureExternalStageParams,
+            ]
+        ] = None,
+        directory_table_params: Optional[
+            Union[
+                InternalDirectoryTableParams,
+                S3DirectoryTableParams,
+                GCSDirectoryTableParams,
+                AzureDirectoryTableParams,
+            ]
+        ] = None,
+        file_format: Optional[FileFormatSpecification] = None,
+        comment: Optional[str] = None,
+        tags: Dict[str, str] = field(default_factory=dict),
+        is_create_or_replace: bool = False,
+        is_create_if_not_exists: bool = False,
+        is_temporary: bool = False,
+    ):
+        self.name = name
+        self.stage_params = stage_params
+        self.directory_table_params = directory_table_params
+        self.file_format = file_format
+        self.comment = comment
+        self.tags = tags or {}
+        self.is_create_or_replace = is_create_or_replace
+        self.is_create_if_not_exists = is_create_if_not_exists
+        self.is_temporary = is_temporary
 
     @classmethod
-    def builder(cls, name: str) -> Stage:
-        """Creates a new Stage builder."""
-        return cls(name=name)
-
-    def with_stage_params(
-        self,
-        params: Union[
-            InternalStageParams,
-            S3ExternalStageParams,
-            S3CompatibleExternalStageParams,
-            GCSExternalStageParams,
-            AzureExternalStageParams,
-        ],
-    ) -> Stage:
-        """Sets the stage parameters."""
-        self.stage_params = params
-        return self
-
-    def with_directory_table_params(
-        self,
-        params: Union[
-            InternalDirectoryTableParams,
-            S3DirectoryTableParams,
-            GCSDirectoryTableParams,
-            AzureDirectoryTableParams,
-        ],
-    ) -> Stage:
-        """Sets the directory table parameters."""
-        self.directory_table_params = params
-        return self
-
-    def with_file_format(self, file_format: FileFormatSpecification) -> Stage:
-        """Sets the file format specification."""
-        self.file_format = file_format
-        return self
-
-    def with_comment(self, comment: str) -> Stage:
-        """Sets the stage comment."""
-        self.comment = comment
-        return self
-
-    def with_tags(self, tags: Dict[str, str]) -> Stage:
-        """Sets the stage tags."""
-        self.tags = tags
-        return self
-
-    def create_or_replace(self) -> Stage:
-        """Sets the stage to be created or replaced."""
-        self.is_create_or_replace = True
-        return self
-
-    def create_if_not_exists(self) -> Stage:
-        """Sets the stage to be created only if it doesn't exist."""
-        self.is_create_if_not_exists = True
-        return self
-
-    def temporary(self) -> Stage:
-        """Sets the stage as temporary."""
-        self.is_temporary = True
-        return self
+    def builder(cls) -> StageBuilder:
+        """Creates a new StageBuilder instance."""
+        return StageBuilder()
 
     def to_sql(self) -> str:
         """Generates the SQL statement for the stage."""
@@ -318,3 +273,97 @@ class Stage:
             parts.append(f"TAGS = ({' '.join(tag_parts)})")
 
         return " ".join(parts)
+
+
+class StageBuilder:
+    """Builder for Stage instances."""
+
+    def __init__(self):
+        self.name = None
+        self.stage_params = None
+        self.directory_table_params = None
+        self.file_format = None
+        self.comment = None
+        self.tags = {}
+        self.is_create_or_replace = False
+        self.is_create_if_not_exists = False
+        self.is_temporary = False
+
+    def with_name(self, name: str) -> StageBuilder:
+        """Sets the stage name."""
+        self.name = name
+        return self
+
+    def with_stage_params(
+        self,
+        params: Union[
+            InternalStageParams,
+            S3ExternalStageParams,
+            S3CompatibleExternalStageParams,
+            GCSExternalStageParams,
+            AzureExternalStageParams,
+        ],
+    ) -> StageBuilder:
+        """Sets the stage parameters."""
+        self.stage_params = params
+        return self
+
+    def with_directory_table_params(
+        self,
+        params: Union[
+            InternalDirectoryTableParams,
+            S3DirectoryTableParams,
+            GCSDirectoryTableParams,
+            AzureDirectoryTableParams,
+        ],
+    ) -> StageBuilder:
+        """Sets the directory table parameters."""
+        self.directory_table_params = params
+        return self
+
+    def with_file_format(self, file_format: FileFormatSpecification) -> StageBuilder:
+        """Sets the file format specification."""
+        self.file_format = file_format
+        return self
+
+    def with_comment(self, comment: str) -> StageBuilder:
+        """Sets the stage comment."""
+        self.comment = comment
+        return self
+
+    def with_tag(self, key: str, value: str) -> StageBuilder:
+        """Adds a tag to the stage."""
+        self.tags[key] = value
+        return self
+
+    def create_or_replace(self) -> StageBuilder:
+        """Sets the stage to be created or replaced."""
+        self.is_create_or_replace = True
+        return self
+
+    def create_if_not_exists(self) -> StageBuilder:
+        """Sets the stage to be created only if it doesn't exist."""
+        self.is_create_if_not_exists = True
+        return self
+
+    def temporary(self) -> StageBuilder:
+        """Sets the stage as temporary."""
+        self.is_temporary = True
+        return self
+
+    def build(self) -> Stage:
+        """Builds and returns a new Stage instance."""
+        if not self.name:
+            raise ValueError("Stage name must be set")
+
+        return Stage(
+            name=self.name,
+            stage_params=self.stage_params,
+            directory_table_params=self.directory_table_params,
+            file_format=self.file_format,
+            comment=self.comment,
+            tags=self.tags,
+            is_create_or_replace=self.is_create_or_replace,
+            is_create_if_not_exists=self.is_create_if_not_exists,
+            is_temporary=self.is_temporary,
+        )
