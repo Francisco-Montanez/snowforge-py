@@ -1,10 +1,11 @@
-from src.forge import Forge, SnowflakeConfig
-from src.table import Column, ColumnType, Table, TableType
+from snowforge import Forge, SnowflakeConfig
+from snowforge.table import Column, ColumnType, Table, TableType
 
 # Create table definition
-table = (
+customers_table = (
     Table.builder()
     .with_name("customers")
+    .create_if_not_exists()
     .add_column(Column("id", ColumnType.NUMBER, nullable=False, identity=True))
     .add_column(Column("name", ColumnType.STRING, nullable=False))
     .add_column(Column("email", ColumnType.STRING, unique=True))
@@ -19,25 +20,19 @@ table = (
 )
 
 # Basic connection setup
-config = SnowflakeConfig(
-    account="your_account",
-    user="your_user",
-    password="your_password",
-    warehouse="your_warehouse",
-    database="your_database",
-    schema="your_schema",
-    role="your_role",
-    session_parameters={"QUERY_TAG": "example_workflow", "TIMEZONE": "UTC"},
-)
+config = SnowflakeConfig.from_env()
 
 # Create Forge instance and execute
 forge = Forge(config)
-forge.create_table(table)
+forge.execute_sql("CREATE TAG IF NOT EXISTS DEPARTMENT")
+forge.execute_sql("CREATE TAG IF NOT EXISTS OWNER")
+forge.create_table(customers_table)
 
 # Create a table with clustering
 orders_table = (
     Table.builder()
     .with_name("orders")
+    .create_if_not_exists()
     .add_column(Column("order_id", ColumnType.NUMBER, nullable=False, identity=True))
     .add_column(Column("customer_id", ColumnType.NUMBER, foreign_key="customers(id)"))
     .add_column(Column("order_date", ColumnType.DATE))

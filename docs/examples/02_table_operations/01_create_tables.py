@@ -4,10 +4,15 @@ from snowforge.table import Column, ColumnType, Table, TableType
 
 # Create a complete data model for an e-commerce system
 def create_ecommerce_schema(forge: Forge):
+    # Create the tags
+    forge.execute_sql("CREATE TAG IF NOT EXISTS DEPARTMENT")
+    forge.execute_sql("CREATE TAG IF NOT EXISTS SECURITY_LEVEL")
+
     # 1. Create Users table
     users_table = (
         Table.builder()
         .with_name("users")
+        .create_if_not_exists()
         .add_column(
             Column(
                 "user_id",
@@ -39,6 +44,7 @@ def create_ecommerce_schema(forge: Forge):
     products_table = (
         Table.builder()
         .with_name("products")
+        .create_if_not_exists()
         .add_column(
             Column("product_id", ColumnType.NUMBER, nullable=False, identity=True)
         )
@@ -57,3 +63,9 @@ def create_ecommerce_schema(forge: Forge):
 
     # Execute as a single transaction
     forge.workflow().create_table(users_table).create_table(products_table).execute()
+
+
+config = SnowflakeConfig.from_env()
+
+with Forge(config) as forge:
+    create_ecommerce_schema(forge)
