@@ -158,11 +158,10 @@ class Forge:
             yield self._conn
         except SnowflakeError as e:
             logger.error(f"Snowflake connection error: {e}")
-            raise
-        finally:
             if self._conn:
                 self._conn.close()
                 self._conn = None
+            raise
 
     @contextmanager
     def transaction(self):
@@ -172,9 +171,16 @@ class Forge:
                 yield conn
                 conn.commit()
             except Exception as e:
-                conn.rollback()
+                try:
+                    conn.rollback()
+                except SnowflakeError:
+                    pass  # If rollback fails, we'll still close the connection
                 logger.error(f"Transaction failed: {e}")
                 raise
+            finally:
+                if self._conn:
+                    self._conn.close()
+                    self._conn = None
 
     def execute_sql(self, sql: str) -> List[Dict[str, Any]]:
         """
