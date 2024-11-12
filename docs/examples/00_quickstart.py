@@ -1,11 +1,11 @@
 from pathlib import Path
 
-from src.copy_into import CopyInto, CopyIntoSource, CopyIntoTarget
-from src.file_format import CsvOptions, FileFormat, FileFormatSpecification
-from src.forge import Forge, SnowflakeConfig
-from src.put import InternalStage, Put
-from src.stage import InternalStageParams, Stage
-from src.table import Column, ColumnType, Table
+from snowforge.copy_into import CopyInto, CopyIntoSource, CopyIntoTarget
+from snowforge.file_format import CsvOptions, FileFormat, FileFormatSpecification
+from snowforge.forge import Forge, SnowflakeConfig
+from snowforge.put import InternalStage, Put
+from snowforge.stage import InternalStageParams, Stage
+from snowforge.table import Column, ColumnType, Table
 
 # 1. Configure Snowflake connection
 config = SnowflakeConfig(

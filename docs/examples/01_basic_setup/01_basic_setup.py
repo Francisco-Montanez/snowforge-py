@@ -1,4 +1,4 @@
-from src.forge import Forge, SnowflakeConfig
+from snowforge import Forge, SnowflakeConfig
 
 # Basic connection setup
 config = SnowflakeConfig(
@@ -12,6 +12,8 @@ config = SnowflakeConfig(
     session_parameters={"QUERY_TAG": "example_workflow", "TIMEZONE": "UTC"},
 )
 
+config = SnowflakeConfig.from_env()
+
 # Create Forge instance
 forge = Forge(config)
 
@@ -19,6 +21,7 @@ forge = Forge(config)
 results = forge.execute_sql(
     "SELECT CURRENT_WAREHOUSE(), CURRENT_DATABASE(), CURRENT_SCHEMA()"
 )
+
 print("Current session details:", results)
 
 # Using transaction context

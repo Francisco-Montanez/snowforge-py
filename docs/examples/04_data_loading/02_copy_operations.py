@@ -1,6 +1,6 @@
-from src.copy_into import CopyInto, CopyIntoSource, CopyIntoTarget
-from src.file_format import FileFormat, ParquetOptions
-from src.forge import Forge
+from snowforge.copy_into import CopyInto, CopyIntoSource, CopyIntoTarget
+from snowforge.file_format import FileFormat, ParquetOptions
+from snowforge.forge import Forge
 
 
 def demonstrate_copy_operations(forge: Forge):

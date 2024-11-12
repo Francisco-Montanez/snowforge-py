@@ -1,5 +1,5 @@
-from src.forge import Forge, SnowflakeConfig
-from src.table import Column, ColumnType, Table, TableType
+from snowforge import Forge, SnowflakeConfig
+from snowforge.table import Column, ColumnType, Table, TableType
 
 
 # Create a complete data model for an e-commerce system
