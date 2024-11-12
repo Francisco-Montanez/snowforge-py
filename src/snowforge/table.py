@@ -151,7 +151,9 @@ class Table:
         else:
             parts.append("CREATE")
 
-        parts.append(self.table_type.value)
+        if self.table_type != TableType.PERMANENT:
+            parts.append(self.table_type.value)
+
         parts.append("TABLE")
 
         if self.is_create_if_not_exists:
@@ -163,14 +165,8 @@ class Table:
         column_definitions = [col.to_sql() for col in self.columns]
         parts.append(f"({', '.join(column_definitions)})")
 
-        if self.cluster_by:
-            parts.append(f"CLUSTER BY ({', '.join(self.cluster_by)})")
-
-        if self.stage_file_format:
-            parts.append(f"STAGE_FILE_FORMAT = {self.stage_file_format}")
-
-        if self.stage_copy_options:
-            parts.append(f"STAGE_COPY_OPTIONS = ({self.stage_copy_options})")
+        if self.comment:
+            parts.append(f"COMMENT = '{self.comment.replace(chr(39), chr(39)*2)}'")
 
         if self.data_retention_time_in_days is not None:
             parts.append(
@@ -191,22 +187,24 @@ class Table:
         if self.copy_grants:
             parts.append("COPY GRANTS")
 
-        if self.comment:
-            parts.append(f"COMMENT = '{self.comment.replace(chr(39), chr(39)*2)}'")
+        if self.cluster_by:
+            parts.append(f"CLUSTER BY ({', '.join(self.cluster_by)})")
 
         if self.row_access_policy:
             policy = self.row_access_policy
-            parts.append(f"ROW ACCESS POLICY {policy.name} ON ({', '.join(policy.on)})")
+            parts.append(
+                f"WITH ROW ACCESS POLICY {policy.name} ON ({', '.join(policy.on)})"
+            )
 
         if self.aggregation_policy:
             policy = self.aggregation_policy
             parts.append(
-                f"AGGREGATION POLICY {policy.name} ON ({', '.join(policy.on)})"
+                f"WITH AGGREGATION POLICY {policy.name} ON ({', '.join(policy.on)})"
             )
 
         if self.tags:
-            tag_parts = [f"{k} = '{v}'" for k, v in self.tags.items()]
-            parts.append(f"TAGS = ({' '.join(tag_parts)})")
+            tag_parts = [f"TAG ({key} = '{value}')" for key, value in self.tags.items()]
+            parts.append("WITH " + " ".join(tag_parts))
 
         return " ".join(parts)
 
