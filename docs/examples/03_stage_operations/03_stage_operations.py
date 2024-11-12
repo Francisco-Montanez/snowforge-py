@@ -1,6 +1,6 @@
-from src.file_format import CsvOptions, FileFormat, FileFormatSpecification
-from src.forge import Forge, SnowflakeConfig
-from src.stage import InternalStageParams, S3ExternalStageParams, Stage
+from snowforge import Forge, SnowflakeConfig
+from snowforge.file_format import CsvOptions, FileFormat, FileFormatSpecification
+from snowforge.stage import InternalStageParams, S3ExternalStageParams, Stage
 
 # Create internal stage
 internal_stage = (
@@ -34,16 +34,7 @@ s3_stage = (
 )
 
 # Basic connection setup
-config = SnowflakeConfig(
-    account="your_account",
-    user="your_user",
-    password="your_password",
-    warehouse="your_warehouse",
-    database="your_database",
-    schema="your_schema",
-    role="your_role",
-    session_parameters={"QUERY_TAG": "example_workflow", "TIMEZONE": "UTC"},
-)
+config = SnowflakeConfig.from_env()
 # Execute using Forge
-forge = Forge(config)
-forge.workflow().create_stage(internal_stage).create_stage(s3_stage).execute()
+with Forge(config) as forge:
+    forge.workflow().create_stage(internal_stage).execute()
