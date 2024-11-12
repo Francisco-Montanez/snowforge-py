@@ -1,8 +1,8 @@
 from pathlib import Path
 
-from src.file_format import Compression
-from src.forge import Forge, SnowflakeConfig
-from src.put import InternalStage, Put
+from snowforge.file_format import Compression
+from snowforge.forge import Forge, SnowflakeConfig
+from snowforge.put import InternalStage, Put
 
 
 def demonstrate_put_operations(forge: Forge):

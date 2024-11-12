@@ -1,10 +1,10 @@
 from datetime import datetime
 
-from src.copy_into import CopyInto, CopyIntoSource, CopyIntoTarget
-from src.forge import Forge, SnowflakeConfig
-from src.stage import InternalStageParams, Stage
-from src.table import Column, ColumnType, Table
-from src.task import Task, TaskType, WarehouseSize
+from snowforge.copy_into import CopyInto, CopyIntoSource, CopyIntoTarget
+from snowforge.forge import Forge, SnowflakeConfig
+from snowforge.stage import InternalStageParams, Stage
+from snowforge.table import Column, ColumnType, Table
+from snowforge.task import Task, TaskType, WarehouseSize
 
 
 def create_migration_workflow(forge: Forge):

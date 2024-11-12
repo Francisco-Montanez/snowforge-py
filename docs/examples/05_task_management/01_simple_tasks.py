@@ -1,7 +1,7 @@
 from datetime import datetime
 
-from src.forge import Forge
-from src.task import Schedule, Task, WarehouseSize
+from snowforge import Forge
+from snowforge.task import Schedule, Task, WarehouseSize
 
 
 def create_data_processing_tasks(forge: Forge):

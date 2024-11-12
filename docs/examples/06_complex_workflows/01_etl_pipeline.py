@@ -1,11 +1,11 @@
 from pathlib import Path
 
-from src.copy_into import CopyInto, CopyIntoSource, CopyIntoTarget
-from src.file_format import FileFormat, FileFormatSpecification, ParquetOptions
-from src.forge import Forge, SnowflakeConfig
-from src.stage import S3ExternalStageParams, Stage
-from src.table import Column, ColumnType, Table
-from src.task import Schedule, Task, TaskType, WarehouseSize
+from snowforge.copy_into import CopyInto, CopyIntoSource, CopyIntoTarget
+from snowforge.file_format import FileFormat, FileFormatSpecification, ParquetOptions
+from snowforge.forge import Forge, SnowflakeConfig
+from snowforge.stage import S3ExternalStageParams, Stage
+from snowforge.table import Column, ColumnType, Table
+from snowforge.task import Schedule, Task, TaskType, WarehouseSize
 
 
 def create_etl_pipeline(forge: Forge):
