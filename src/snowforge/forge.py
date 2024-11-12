@@ -5,7 +5,7 @@ import os
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Generator, List, Optional, Union
 
 import snowflake.connector
 from dotenv import load_dotenv
@@ -95,7 +95,6 @@ class SnowflakeConfig:
         config_dict = {}
         missing_vars = []
 
-        # Check required variables
         for var in required_vars:
             env_var = f"{env_prefix}{var}"
             value = os.getenv(env_var)
@@ -131,79 +130,156 @@ class SnowflakeConfig:
         return cls(**config_dict)
 
 
+class TransactionManager:
+    """Manages Snowflake transaction boundaries and retries."""
+
+    def __init__(self, connection: SnowflakeConnection, max_retries: int = 3):
+        self.connection = connection
+        self.max_retries = max_retries
+        self._transaction_level = 0
+
+    @contextmanager
+    def transaction(
+        self, readonly: bool = False
+    ) -> Generator[SnowflakeConnection, None, None]:
+        """Manage transaction boundaries with retry logic."""
+        retry_count = 0
+        while True:
+            try:
+                if self._transaction_level == 0:
+                    self.connection.cursor().execute("BEGIN TRANSACTION")
+                self._transaction_level += 1
+
+                yield self.connection
+
+                if self._transaction_level == 1:
+                    self.connection.cursor().execute("COMMIT")
+                self._transaction_level -= 1
+                break
+
+            except snowflake.connector.errors.ProgrammingError as e:
+                if self._transaction_level > 0:
+                    self._transaction_level -= 1
+                if retry_count < self.max_retries and self._is_retryable(e):
+                    retry_count += 1
+                    continue
+                raise
+            except Exception:
+                if self._transaction_level > 0:
+                    try:
+                        self.connection.cursor().execute("ROLLBACK")
+                    except Exception:
+                        pass
+                    self._transaction_level = 0
+                raise
+
+    def _is_retryable(self, error: Exception) -> bool:
+        """Determine if an error is retryable."""
+        retryable_codes = {
+            250001,  # Connection reset
+            250002,  # Connection closed
+            90100,  # Network error
+        }
+        return (
+            isinstance(error, snowflake.connector.errors.ProgrammingError)
+            and error.errno in retryable_codes
+        )
+
+
 class Forge:
-    """
-    Orchestrates Snowflake workflows by managing connections and executing operations.
-    """
+    """Snowflake workflow orchestrator with proper session management."""
 
     def __init__(self, config: SnowflakeConfig):
         self.config = config
         self._conn: Optional[SnowflakeConnection] = None
+        self._session_id: Optional[int] = None
 
     @contextmanager
-    def connection(self):
-        """Creates and manages a Snowflake connection."""
+    def get_connection(self) -> Generator[SnowflakeConnection, None, None]:
+        """Get or create a Snowflake connection."""
+        if not self._conn:
+            self._conn = snowflake.connector.connect(
+                account=self.config.account,
+                user=self.config.user,
+                password=self.config.password,
+                warehouse=self.config.warehouse,
+                database=self.config.database,
+                schema=self.config.schema,
+                role=self.config.role,
+                session_parameters=self.config.session_parameters,
+            )
+            self._session_id = self._conn.session_id
+
         try:
-            if not self._conn:
-                self._conn = snowflake.connector.connect(
-                    account=self.config.account,
-                    user=self.config.user,
-                    password=self.config.password,
-                    warehouse=self.config.warehouse,
-                    database=self.config.database,
-                    schema=self.config.schema,
-                    role=self.config.role,
-                    session_parameters=self.config.session_parameters,
-                )
             yield self._conn
-        except SnowflakeError as e:
-            logger.error(f"Snowflake connection error: {e}")
-            if self._conn:
-                self._conn.close()
-                self._conn = None
+        except Exception:
+            self._cleanup()
             raise
 
-    @contextmanager
-    def transaction(self):
-        """Manages a transaction block."""
-        with self.connection() as conn:
+    def _cleanup(self) -> None:
+        """Properly cleanup Snowflake session and connection."""
+        if self._conn and self._session_id is not None:
             try:
-                yield conn
-                conn.commit()
-            except Exception as e:
+                cursor = self._conn.cursor()
+                cursor.execute(
+                    "SELECT SYSTEM$ABORT_SESSION(%s)", (str(self._session_id),)
+                )
+                cursor.close()
+            except Exception:
+                logger.warning("Failed to abort session", exc_info=True)
+            finally:
                 try:
-                    conn.rollback()
-                except SnowflakeError:
-                    pass  # If rollback fails, we'll still close the connection
-                logger.error(f"Transaction failed: {e}")
+                    self._conn.close()
+                except Exception:
+                    logger.warning("Failed to close connection", exc_info=True)
+                self._conn = None
+                self._session_id = None
+
+    def __enter__(self) -> 'Forge':
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        self._cleanup()
+
+    @contextmanager
+    def transaction(self) -> Generator[SnowflakeConnection, None, None]:
+        """Execute operations in a transaction."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            try:
+                cursor.execute("BEGIN")
+                yield conn
+                cursor.execute("COMMIT")
+            except Exception:
+                try:
+                    cursor.execute("ROLLBACK")
+                except Exception:
+                    logger.error("Failed to rollback transaction", exc_info=True)
                 raise
             finally:
-                if self._conn:
-                    self._conn.close()
-                    self._conn = None
+                cursor.close()
 
     def execute_sql(self, sql: str) -> List[Dict[str, Any]]:
-        """
-        Executes a SQL statement and returns results.
-
-        Args:
-            sql: The SQL statement to execute
-
-        Returns:
-            List[Dict[str, Any]]: The query results as a list of dictionaries
-
-        Raises:
-            SnowflakeError: If there's an error executing the SQL
-        """
-        with self.connection() as conn:
-            try:
+        """Executes a SQL statement with proper resource management."""
+        cursor = None
+        try:
+            with self.transaction() as conn:
                 cursor = conn.cursor(snowflake.connector.DictCursor)
                 cursor.execute(sql)
                 results = cursor.fetchall()
                 return [dict(row) for row in results]
-            except SnowflakeError as e:
-                logger.error(f"SQL execution error: {e}\nSQL: {sql}")
-                raise
+        except SnowflakeError as e:
+            logger.error(f"Snowflake error executing SQL: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error executing SQL: {e}")
+            raise
+        finally:
+            if cursor:
+                try:
+                    cursor.close()
+                except Exception:
+                    logger.error("Failed to close cursor", exc_info=True)
 
     def create_table(self, table: Table) -> None:
         """Creates a table in Snowflake."""
