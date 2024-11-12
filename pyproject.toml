@@ -1,19 +1,21 @@
-[tool.poetry]
-name = "snowforge-py"
-version = "0.1.0"
-description = "simplify the creation and management of Snowflake objects and data pipeline processes"
-authors = [
-    "Francisco Montanez <32565971+Francisco-Montanez@users.noreply.github.com>",
-]
-license = "GPL-3.0"
-readme = "README.md"
-
-[tool.poetry.dependencies]
-python = ">=3.9,<3.12"
-snowflake-snowpark-python = "^1.24.0"
-python-dotenv = "^1.0.1"
-
-
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "snowforge"
+version = "0.1.0"
+authors = [{ name = "Your Name", email = "your.email@example.com" }]
+description = "A Python library for managing Snowflake workflows"
+readme = "README.md"
+requires-python = ">=3.7"
+dependencies = ["snowflake-connector-python", "python-dotenv"]
+
+[project.optional-dependencies]
+dev = ["pytest", "black", "isort", "mypy"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/snowforge"]
+
+[tool.hatch.build.targets.sdist]
+packages = ["src/snowforge"]
