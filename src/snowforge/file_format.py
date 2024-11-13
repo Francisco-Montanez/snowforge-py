@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from enum import Enum
-from typing import List, Optional, Union
+from enum import Enum, Flag, auto
+from typing import List, Literal, Optional, Union
 
 
 class BinaryFormat(Enum):
@@ -15,21 +15,42 @@ class BinaryFormat(Enum):
         return self.value
 
 
-class Compression(Enum):
+class CompressionType(str, Enum):
+    """Base compression options available across all formats"""
+
     AUTO = "AUTO"
-    AUTO_DETECT = "AUTO_DETECT"
-    GZIP = "GZIP"
     NONE = "NONE"
+    GZIP = "GZIP"
+    BROTLI = "BROTLI"
     ZSTD = "ZSTD"
     DEFLATE = "DEFLATE"
     RAW_DEFLATE = "RAWDEFLATE"
     BZ2 = "BZ2"
-    BROTLI = "BROTLI"
     LZO = "LZO"
     SNAPPY = "SNAPPY"
 
     def __str__(self) -> str:
         return self.value
+
+
+# Define valid compression types for each format using TypeVar and Literal
+StandardCompressionType = Literal[
+    CompressionType.AUTO,
+    CompressionType.NONE,
+    CompressionType.GZIP,
+    CompressionType.BROTLI,
+    CompressionType.ZSTD,
+    CompressionType.DEFLATE,
+    CompressionType.RAW_DEFLATE,
+    CompressionType.BZ2,
+]
+
+ParquetCompressionType = Literal[
+    CompressionType.AUTO,
+    CompressionType.NONE,
+    CompressionType.LZO,
+    CompressionType.SNAPPY,
+]
 
 
 class FileFormatOptions(ABC):
@@ -52,69 +73,69 @@ class FileFormat:
 
 class FileFormatBuilder:
     def __init__(self, name: str):
-        self.name = name
-        self.temporary = False
-        self.volatile = False
-        self.options: Optional[FileFormatOptions] = None
-        self.create_or_replace = False
-        self.create_if_not_exists = False
-        self.comment: Optional[str] = None
-
-    def with_temporary(self) -> FileFormatBuilder:
-        self.temporary = True
-        return self
-
-    def with_volatile(self) -> FileFormatBuilder:
-        self.volatile = True
-        return self
-
-    def with_options(self, options: FileFormatOptions) -> FileFormatBuilder:
-        self.options = options
-        return self
+        self._name = name
+        self._temporary = False
+        self._volatile = False
+        self._options: Optional[FileFormatOptions] = None
+        self._create_or_replace = False
+        self._create_if_not_exists = False
+        self._comment: Optional[str] = None
 
     def with_create_or_replace(self) -> FileFormatBuilder:
-        self.create_or_replace = True
+        self._create_or_replace = True
         return self
 
     def with_create_if_not_exists(self) -> FileFormatBuilder:
-        self.create_if_not_exists = True
+        self._create_if_not_exists = True
+        return self
+
+    def with_temporary(self) -> FileFormatBuilder:
+        self._temporary = True
+        return self
+
+    def with_volatile(self) -> FileFormatBuilder:
+        self._volatile = True
+        return self
+
+    def with_options(self, options: FileFormatOptions) -> FileFormatBuilder:
+        self._options = options
         return self
 
     def with_comment(self, comment: str) -> FileFormatBuilder:
-        self.comment = comment
+        self._comment = comment
         return self
 
     def _to_sql(self) -> str:
         parts = []
 
-        if self.create_or_replace:
+        if self._create_or_replace:
             parts.append("CREATE OR REPLACE")
         else:
             parts.append("CREATE")
 
-        if self.temporary:
+        if self._temporary:
             parts.append("TEMPORARY")
-        elif self.volatile:
+        elif self._volatile:
             parts.append("VOLATILE")
 
         parts.append("FILE FORMAT")
 
-        if self.create_if_not_exists:
+        if self._create_if_not_exists:
             parts.append("IF NOT EXISTS")
 
-        parts.append(self.name)
+        parts.append(self._name)
 
-        if self.options:
-            parts.append(self.options.to_sql())
+        if self._options:
+            parts.append(self._options.to_sql())
 
-        if self.comment:
-            parts.append(f"COMMENT = '{self.comment.replace(chr(39), chr(39)*2)}'")
+        if self._comment:
+            parts.append(f"COMMENT = '{self._comment.replace(chr(39), chr(39)*2)}'")
 
         return " ".join(parts)
 
     def build(self) -> FileFormat:
         return FileFormat(
-            name=self.name, options=self.options, sql_statement=self._to_sql()
+            name=self._name, options=self._options, sql_statement=self._to_sql()
         )
 
 
@@ -145,7 +166,7 @@ class FileFormatSpecification:
 
 @dataclass
 class AvroOptions(FileFormatOptions):
-    compression: Optional[Compression] = None
+    compression: Optional[StandardCompressionType] = None
     trim_space: Optional[bool] = None
     replace_invalid_characters: Optional[bool] = None
     null_if: Optional[List[str]] = None
@@ -174,12 +195,14 @@ class AvroOptions(FileFormatOptions):
 
 class AvroOptionsBuilder:
     def __init__(self):
-        self.compression: Optional[Compression] = None
+        self.compression: Optional[StandardCompressionType] = None
         self.trim_space: Optional[bool] = None
         self.replace_invalid_characters: Optional[bool] = None
         self.null_if: Optional[List[str]] = None
 
-    def with_compression(self, compression: Compression) -> 'AvroOptionsBuilder':
+    def with_compression(
+        self, compression: StandardCompressionType
+    ) -> 'AvroOptionsBuilder':
         self.compression = compression
         return self
 
@@ -208,7 +231,7 @@ class AvroOptionsBuilder:
 
 @dataclass
 class ParquetOptions(FileFormatOptions):
-    compression: Optional[Compression] = None
+    compression: Optional[ParquetCompressionType] = None
     binary_as_text: Optional[bool] = None
     use_logical_type: Optional[bool] = None
     trim_space: Optional[bool] = None
@@ -248,7 +271,7 @@ class ParquetOptions(FileFormatOptions):
 
 class ParquetOptionsBuilder:
     def __init__(self):
-        self.compression: Optional[Compression] = None
+        self.compression: Optional[ParquetCompressionType] = None
         self.binary_as_text: Optional[bool] = None
         self.use_logical_type: Optional[bool] = None
         self.trim_space: Optional[bool] = None
@@ -256,7 +279,9 @@ class ParquetOptionsBuilder:
         self.null_if: Optional[List[str]] = None
         self.use_vectorized_scanner: Optional[bool] = None
 
-    def with_compression(self, compression: Compression) -> 'ParquetOptionsBuilder':
+    def with_compression(
+        self, compression: ParquetCompressionType
+    ) -> 'ParquetOptionsBuilder':
         self.compression = compression
         return self
 
@@ -302,7 +327,7 @@ class ParquetOptionsBuilder:
 
 @dataclass
 class JsonOptions(FileFormatOptions):
-    compression: Optional[Compression] = None
+    compression: Optional[StandardCompressionType] = None
     date_format: Optional[str] = None
     time_format: Optional[str] = None
     timestamp_format: Optional[str] = None
@@ -366,7 +391,7 @@ class JsonOptions(FileFormatOptions):
 
 class JsonOptionsBuilder:
     def __init__(self):
-        self.compression: Optional[Compression] = None
+        self.compression: Optional[StandardCompressionType] = None
         self.date_format: Optional[str] = None
         self.time_format: Optional[str] = None
         self.timestamp_format: Optional[str] = None
@@ -382,7 +407,9 @@ class JsonOptionsBuilder:
         self.ignore_utf8_errors: Optional[bool] = None
         self.skip_byte_order_mark: Optional[bool] = None
 
-    def with_compression(self, compression: Compression) -> 'JsonOptionsBuilder':
+    def with_compression(
+        self, compression: StandardCompressionType
+    ) -> 'JsonOptionsBuilder':
         self.compression = compression
         return self
 
@@ -468,7 +495,7 @@ class JsonOptionsBuilder:
 
 @dataclass
 class CsvOptions(FileFormatOptions):
-    compression: Optional[Compression] = None
+    compression: Optional[StandardCompressionType] = None
     record_delimiter: Optional[str] = None
     field_delimiter: Optional[str] = None
     file_extension: Optional[str] = None
@@ -556,7 +583,7 @@ class CsvOptions(FileFormatOptions):
 
 class CsvOptionsBuilder:
     def __init__(self):
-        self.compression: Optional[Compression] = None
+        self.compression: Optional[StandardCompressionType] = None
         self.record_delimiter: Optional[str] = None
         self.field_delimiter: Optional[str] = None
         self.file_extension: Optional[str] = None
@@ -578,7 +605,9 @@ class CsvOptionsBuilder:
         self.skip_byte_order_mark: Optional[bool] = None
         self.encoding: Optional[str] = None
 
-    def with_compression(self, compression: Compression) -> 'CsvOptionsBuilder':
+    def with_compression(
+        self, compression: StandardCompressionType
+    ) -> 'CsvOptionsBuilder':
         self.compression = compression
         return self
 
@@ -702,7 +731,7 @@ class CsvOptionsBuilder:
 
 @dataclass
 class XmlOptions(FileFormatOptions):
-    compression: Optional[Compression] = None
+    compression: Optional[StandardCompressionType] = None
     ignore_utf8_errors: Optional[bool] = None
     preserve_space: Optional[bool] = None
     strip_outer_element: Optional[bool] = None
@@ -750,7 +779,7 @@ class XmlOptions(FileFormatOptions):
 
 class XmlOptionsBuilder:
     def __init__(self):
-        self.compression: Optional[Compression] = None
+        self.compression: Optional[StandardCompressionType] = None
         self.ignore_utf8_errors: Optional[bool] = None
         self.preserve_space: Optional[bool] = None
         self.strip_outer_element: Optional[bool] = None
@@ -759,7 +788,9 @@ class XmlOptionsBuilder:
         self.replace_invalid_characters: Optional[bool] = None
         self.skip_byte_order_mark: Optional[bool] = None
 
-    def with_compression(self, compression: Compression) -> 'XmlOptionsBuilder':
+    def with_compression(
+        self, compression: StandardCompressionType
+    ) -> 'XmlOptionsBuilder':
         self.compression = compression
         return self
 

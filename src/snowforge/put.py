@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from .file_format import Compression
+from .file_format import CompressionType
 
 
 class InternalStage:
@@ -51,7 +51,7 @@ class Put:
     stage: InternalStage
     parallel: Optional[int] = None
     auto_compress: bool = True
-    source_compression: Compression = Compression.AUTO
+    source_compression: CompressionType = CompressionType.AUTO
     overwrite: bool = False
 
     @classmethod
@@ -97,7 +97,7 @@ class PutBuilder:
         self.stage: Optional[InternalStage] = None
         self.parallel: Optional[int] = None
         self.auto_compress: bool = True
-        self.source_compression: Compression = Compression.AUTO
+        self.source_compression: CompressionType = CompressionType.AUTO
         self.overwrite: bool = False
 
     def with_file_path(self, file_path: Path | str) -> PutBuilder:
@@ -124,7 +124,7 @@ class PutBuilder:
         self.auto_compress = auto_compress
         return self
 
-    def with_source_compression(self, compression: Compression) -> PutBuilder:
+    def with_source_compression(self, compression: CompressionType) -> PutBuilder:
         """Sets the compression type of the source file."""
         self.source_compression = compression
         return self
