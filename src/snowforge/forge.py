@@ -371,7 +371,18 @@ class WorkflowBuilder:
 
     def __init__(self, forge: Forge):
         self.forge = forge
-        self.steps: List[WorkflowStep] = []
+        self.steps: List[WorkflowStep] = []  # Single list for all steps
+        self._current_transaction_steps: List[WorkflowStep] = []
+
+    def _execute_transaction_steps(self) -> None:
+        """Execute accumulated transaction steps."""
+        if self._current_transaction_steps:
+            with self.forge.transaction() as conn:
+                for step in self._current_transaction_steps:
+                    logger.info(f"Executing workflow step: {step.step_type}")
+                    method = getattr(self.forge, step.step_type)
+                    method(step.object)
+            self._current_transaction_steps.clear()
 
     def use_database(
         self,
@@ -381,18 +392,20 @@ class WorkflowBuilder:
     ) -> WorkflowBuilder:
         """Sets the database for the workflow."""
         if create_if_not_exists:
-            self.steps.append(
+            self._add_transaction_step(
                 WorkflowStep(
                     "create_database", f"CREATE DATABASE IF NOT EXISTS {database};"
                 )
             )
         elif create_or_replace:
-            self.steps.append(
+            self._add_transaction_step(
                 WorkflowStep(
                     "create_database", f"CREATE OR REPLACE DATABASE {database};"
                 )
             )
-        self.steps.append(WorkflowStep("use_database", f"USE DATABASE {database};"))
+        self._add_transaction_step(
+            WorkflowStep("use_database", f"USE DATABASE {database};")
+        )
         return self
 
     def use_schema(
@@ -403,19 +416,24 @@ class WorkflowBuilder:
     ) -> WorkflowBuilder:
         """Sets the schema for the workflow."""
         if create_if_not_exists:
-            self.steps.append(
+            self._add_transaction_step(
                 WorkflowStep("create_schema", f"CREATE SCHEMA IF NOT EXISTS {schema};")
             )
         elif create_or_replace:
-            self.steps.append(
+            self._add_transaction_step(
                 WorkflowStep("create_schema", f"CREATE OR REPLACE SCHEMA {schema};")
             )
-        self.steps.append(WorkflowStep("use_schema", f"USE SCHEMA {schema};"))
+        self._add_transaction_step(WorkflowStep("use_schema", f"USE SCHEMA {schema};"))
         return self
+
+    def _add_transaction_step(self, step: WorkflowStep) -> None:
+        """Add a step that should be executed within a transaction."""
+        self._current_transaction_steps.append(step)
+        self.steps.append(step)
 
     def add_table(self, table: Table) -> WorkflowBuilder:
         """Adds a table creation step."""
-        self.steps.append(WorkflowStep("create_table", table))
+        self._add_transaction_step(WorkflowStep("create_table", table))
         return self
 
     def add_tables(self, tables: List[Table]) -> WorkflowBuilder:
@@ -426,7 +444,7 @@ class WorkflowBuilder:
 
     def add_stage(self, stage: Stage) -> WorkflowBuilder:
         """Adds a stage creation step."""
-        self.steps.append(WorkflowStep("create_stage", stage))
+        self._add_transaction_step(WorkflowStep("create_stage", stage))
         return self
 
     def add_stages(self, stages: List[Stage]) -> WorkflowBuilder:
@@ -437,7 +455,7 @@ class WorkflowBuilder:
 
     def add_file_format(self, file_format: FileFormat) -> WorkflowBuilder:
         """Adds a file format creation step."""
-        self.steps.append(WorkflowStep("create_file_format", file_format))
+        self._add_transaction_step(WorkflowStep("create_file_format", file_format))
         return self
 
     def add_file_formats(self, file_formats: List[FileFormat]) -> WorkflowBuilder:
@@ -448,7 +466,7 @@ class WorkflowBuilder:
 
     def add_stream(self, stream: Stream) -> WorkflowBuilder:
         """Adds a stream creation step."""
-        self.steps.append(WorkflowStep("create_stream", stream))
+        self._add_transaction_step(WorkflowStep("create_stream", stream))
         return self
 
     def add_streams(self, streams: List[Stream]) -> WorkflowBuilder:
@@ -459,7 +477,7 @@ class WorkflowBuilder:
 
     def add_task(self, task: Task) -> WorkflowBuilder:
         """Adds a task creation step."""
-        self.steps.append(WorkflowStep("create_task", task))
+        self._add_transaction_step(WorkflowStep("create_task", task))
         return self
 
     def add_tasks(self, tasks: List[Task]) -> WorkflowBuilder:
@@ -470,17 +488,30 @@ class WorkflowBuilder:
 
     def put_file(self, put: Put) -> WorkflowBuilder:
         """Adds a PUT command step."""
+        # Execute any pending transaction steps before PUT
+        self._execute_transaction_steps()
+
+        # Execute PUT operation immediately
+        with self.forge.get_connection() as conn:
+            cursor = conn.cursor()
+            try:
+                logger.info(f"Executing PUT operation: {put.file_path}")
+                sql = put.to_sql()
+                cursor.execute(sql)
+            finally:
+                cursor.close()
+
         self.steps.append(WorkflowStep("put_file", put))
         return self
 
     def copy_into(self, copy: CopyInto) -> WorkflowBuilder:
         """Adds a COPY INTO command step."""
-        self.steps.append(WorkflowStep("copy_into", copy))
+        self._add_transaction_step(WorkflowStep("copy_into", copy))
         return self
 
     def add_custom_sql(self, sql: str) -> WorkflowBuilder:
         """Adds a custom SQL step."""
-        self.steps.append(WorkflowStep("custom_sql", sql))
+        self._add_transaction_step(WorkflowStep("custom_sql", sql))
         return self
 
     def add_tag(
@@ -508,17 +539,13 @@ class WorkflowBuilder:
             sql_parts.append(f"COMMENT = '{comment}'")
 
         sql = " ".join(sql_parts)
-        self.steps.append(WorkflowStep("custom_sql", sql))
+        self._add_transaction_step(WorkflowStep("custom_sql", sql))
 
         return self
 
     def execute(self) -> None:
-        """Executes all workflow steps in a transaction."""
-        with self.forge.transaction() as conn:
-            for step in self.steps:
-                logger.info(f"Executing workflow step: {step.step_type}")
-                method = getattr(self.forge, step.step_type)
-                method(step.object)
+        """Execute any remaining transaction steps."""
+        self._execute_transaction_steps()
 
 
 @dataclass
