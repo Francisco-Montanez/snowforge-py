@@ -43,6 +43,8 @@ class CopyIntoSource:
         return cls(name, "stage")
 
     def to_sql(self) -> str:
+        if self.source_type == "stage":
+            return f"@{self.name}"
         return self.name
 
 
@@ -59,7 +61,7 @@ class CopyIntoOptions:
     on_error: Optional[str] = None
     size_limit: Optional[int] = None
     purge: bool = False
-    match_by_column_name: bool = False
+    match_by_column_name: Literal["CASE_SENSITIVE", "CASE_INSENSITIVE", "NONE"] = "NONE"
     enforce_length: bool = False
     truncatecolumns: bool = False
     force: bool = False
@@ -92,7 +94,7 @@ class CopyIntoOptions:
         if self.purge:
             parts.append("PURGE = TRUE")
         if self.match_by_column_name:
-            parts.append("MATCH_BY_COLUMN_NAME = TRUE")
+            parts.append(f"MATCH_BY_COLUMN_NAME = {self.match_by_column_name}")
         if self.enforce_length:
             parts.append("ENFORCE_LENGTH = TRUE")
         if self.truncatecolumns:
@@ -116,7 +118,9 @@ class CopyIntoOptionsBuilder:
         self.on_error: Optional[str] = None
         self.size_limit: Optional[int] = None
         self.purge: bool = False
-        self.match_by_column_name: bool = False
+        self.match_by_column_name: Literal[
+            "CASE_SENSITIVE", "CASE_INSENSITIVE", "NONE"
+        ] = "NONE"
         self.enforce_length: bool = False
         self.truncatecolumns: bool = False
         self.force: bool = False
@@ -178,7 +182,8 @@ class CopyIntoOptionsBuilder:
         return self
 
     def with_match_by_column_name(
-        self, match_by_column_name: bool
+        self,
+        match_by_column_name: Literal["CASE_SENSITIVE", "CASE_INSENSITIVE", "NONE"],
     ) -> 'CopyIntoOptionsBuilder':
         """Sets whether to match columns by name."""
         self.match_by_column_name = match_by_column_name
