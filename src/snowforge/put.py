@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
 from .file_format import CompressionType
 
@@ -10,7 +10,7 @@ from .file_format import CompressionType
 class InternalStage:
     """Represents different types of internal stages in Snowflake."""
 
-    def __init__(self, stage_type: str, name: str):
+    def __init__(self, stage_type: Literal["table", "user", "named"], name: str):
         self.stage_type = stage_type
         self.name = name
 
@@ -68,8 +68,11 @@ class Put:
         """
         parts = ["PUT"]
 
-        # Add file path
-        parts.append(f"'file://{self.file_path}'")
+        # Convert to absolute path and format properly
+        abs_path = str(Path(self.file_path).absolute())
+        if not abs_path.startswith('/'):
+            abs_path = '/' + abs_path
+        parts.append(f"'file://{abs_path}'")
 
         # Add stage
         parts.append(str(self.stage))
@@ -81,7 +84,8 @@ class Put:
         if self.auto_compress:
             parts.append("AUTO_COMPRESS = TRUE")
 
-        parts.append(f"SOURCE_COMPRESSION = {self.source_compression}")
+        if self.source_compression != CompressionType.AUTO:
+            parts.append(f"SOURCE_COMPRESSION = {self.source_compression}")
 
         if self.overwrite:
             parts.append("OVERWRITE = TRUE")

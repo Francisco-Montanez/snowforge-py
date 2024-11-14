@@ -315,7 +315,13 @@ class Forge:
         """Executes a PUT command to stage files."""
         sql = put.to_sql()
         logger.info(f"Putting file: {put.file_path}")
-        self.execute_sql(sql)
+
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            try:
+                cursor.execute(sql)
+            finally:
+                cursor.close()
 
     def copy_into(self, copy: CopyInto) -> None:
         """Executes a COPY INTO command."""
