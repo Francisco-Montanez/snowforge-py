@@ -327,6 +327,38 @@ class Forge:
         """Creates a new workflow builder."""
         return WorkflowBuilder(self)
 
+    def create_database(self, sql: str) -> None:
+        """Executes a CREATE DATABASE statement."""
+        logger.info(f"Executing: {sql}")
+        self.execute_sql(sql)
+
+    def use_database(self, sql: str) -> None:
+        """Executes a USE DATABASE statement."""
+        logger.info(f"Executing: {sql}")
+        self.execute_sql(sql)
+
+    def create_schema(self, sql: str) -> None:
+        """Executes a CREATE SCHEMA statement."""
+        logger.info(f"Executing: {sql}")
+        self.execute_sql(sql)
+
+    def use_schema(self, sql: str) -> None:
+        """Executes a USE SCHEMA statement."""
+        logger.info(f"Executing: {sql}")
+        self.execute_sql(sql)
+
+    def add_tag(self, sql: str) -> None:
+        """Executes tag-related SQL statements."""
+        logger.info(f"Executing: {sql}")
+        for statement in sql.split(';'):
+            if statement.strip():
+                self.execute_sql(statement.strip() + ';')
+
+    def custom_sql(self, sql: str) -> None:
+        """Executes a custom SQL statement."""
+        logger.info(f"Executing SQL: {sql}")
+        self.execute_sql(sql)
+
 
 class WorkflowBuilder:
     """Builds and executes Snowflake workflows."""
@@ -335,29 +367,99 @@ class WorkflowBuilder:
         self.forge = forge
         self.steps: List[WorkflowStep] = []
 
-    def create_table(self, table: Table) -> WorkflowBuilder:
+    def use_database(
+        self,
+        database: str,
+        create_if_not_exists: bool = False,
+        create_or_replace: bool = False,
+    ) -> WorkflowBuilder:
+        """Sets the database for the workflow."""
+        if create_if_not_exists:
+            self.steps.append(
+                WorkflowStep(
+                    "create_database", f"CREATE DATABASE IF NOT EXISTS {database};"
+                )
+            )
+        elif create_or_replace:
+            self.steps.append(
+                WorkflowStep(
+                    "create_database", f"CREATE OR REPLACE DATABASE {database};"
+                )
+            )
+        self.steps.append(WorkflowStep("use_database", f"USE DATABASE {database};"))
+        return self
+
+    def use_schema(
+        self,
+        schema: str,
+        create_if_not_exists: bool = False,
+        create_or_replace: bool = False,
+    ) -> WorkflowBuilder:
+        """Sets the schema for the workflow."""
+        if create_if_not_exists:
+            self.steps.append(
+                WorkflowStep("create_schema", f"CREATE SCHEMA IF NOT EXISTS {schema};")
+            )
+        elif create_or_replace:
+            self.steps.append(
+                WorkflowStep("create_schema", f"CREATE OR REPLACE SCHEMA {schema};")
+            )
+        self.steps.append(WorkflowStep("use_schema", f"USE SCHEMA {schema};"))
+        return self
+
+    def add_table(self, table: Table) -> WorkflowBuilder:
         """Adds a table creation step."""
         self.steps.append(WorkflowStep("create_table", table))
         return self
 
-    def create_stage(self, stage: Stage) -> WorkflowBuilder:
+    def add_tables(self, tables: List[Table]) -> WorkflowBuilder:
+        """Adds a list of table creation steps."""
+        for table in tables:
+            self.add_table(table)
+        return self
+
+    def add_stage(self, stage: Stage) -> WorkflowBuilder:
         """Adds a stage creation step."""
         self.steps.append(WorkflowStep("create_stage", stage))
         return self
 
-    def create_file_format(self, file_format: FileFormat) -> WorkflowBuilder:
+    def add_stages(self, stages: List[Stage]) -> WorkflowBuilder:
+        """Adds a list of stage creation steps."""
+        for stage in stages:
+            self.add_stage(stage)
+        return self
+
+    def add_file_format(self, file_format: FileFormat) -> WorkflowBuilder:
         """Adds a file format creation step."""
         self.steps.append(WorkflowStep("create_file_format", file_format))
         return self
 
-    def create_stream(self, stream: Stream) -> WorkflowBuilder:
+    def add_file_formats(self, file_formats: List[FileFormat]) -> WorkflowBuilder:
+        """Adds a list of file format creation steps."""
+        for file_format in file_formats:
+            self.add_file_format(file_format)
+        return self
+
+    def add_stream(self, stream: Stream) -> WorkflowBuilder:
         """Adds a stream creation step."""
         self.steps.append(WorkflowStep("create_stream", stream))
         return self
 
-    def create_task(self, task: Task) -> WorkflowBuilder:
+    def add_streams(self, streams: List[Stream]) -> WorkflowBuilder:
+        """Adds a list of stream creation steps."""
+        for stream in streams:
+            self.add_stream(stream)
+        return self
+
+    def add_task(self, task: Task) -> WorkflowBuilder:
         """Adds a task creation step."""
         self.steps.append(WorkflowStep("create_task", task))
+        return self
+
+    def add_tasks(self, tasks: List[Task]) -> WorkflowBuilder:
+        """Adds a list of task creation steps."""
+        for task in tasks:
+            self.add_task(task)
         return self
 
     def put_file(self, put: Put) -> WorkflowBuilder:
@@ -368,6 +470,40 @@ class WorkflowBuilder:
     def copy_into(self, copy: CopyInto) -> WorkflowBuilder:
         """Adds a COPY INTO command step."""
         self.steps.append(WorkflowStep("copy_into", copy))
+        return self
+
+    def add_custom_sql(self, sql: str) -> WorkflowBuilder:
+        """Adds a custom SQL step."""
+        self.steps.append(WorkflowStep("custom_sql", sql))
+        return self
+
+    def add_tag(
+        self,
+        name: str,
+        allowed_values: Optional[List[str]] = None,
+        comment: Optional[str] = None,
+        replace: bool = False,
+    ) -> WorkflowBuilder:
+        """Creates a tag following Snowflake syntax."""
+        sql_parts = ["CREATE TAG"]
+
+        if replace:
+            sql_parts.insert(1, "OR REPLACE")
+        else:
+            sql_parts.insert(1, "IF NOT EXISTS")
+
+        sql_parts.append(f'{name}')
+
+        if allowed_values:
+            values_str = ", ".join(f"'{val}'" for val in allowed_values)
+            sql_parts.append(f"ALLOWED_VALUES {values_str}")
+
+        if comment:
+            sql_parts.append(f"COMMENT = '{comment}'")
+
+        sql = " ".join(sql_parts)
+        self.steps.append(WorkflowStep("custom_sql", sql))
+
         return self
 
     def execute(self) -> None:
@@ -384,4 +520,4 @@ class WorkflowStep:
     """Represents a single step in a workflow."""
 
     step_type: str
-    object: Union[Table, Stage, FileFormat, Stream, Task, Put, CopyInto]
+    object: Union[Table, Stage, FileFormat, Stream, Task, Put, CopyInto, str]
