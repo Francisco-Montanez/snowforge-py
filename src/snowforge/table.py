@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum, auto
+from enum import Enum
 from typing import Dict, List, Optional, Union
 
 
@@ -138,9 +138,9 @@ class Table:
     is_create_if_not_exists: bool = False
 
     @classmethod
-    def builder(cls) -> TableBuilder:
+    def builder(cls, name: str) -> TableBuilder:
         """Creates a new TableBuilder instance."""
-        return TableBuilder()
+        return TableBuilder(name=name)
 
     def to_sql(self) -> str:
         """Generates the SQL statement for the table."""
@@ -231,12 +231,7 @@ class TableBuilder:
     is_create_or_replace: bool = False
     is_create_if_not_exists: bool = False
 
-    def with_name(self, name: str) -> TableBuilder:
-        """Sets the table name."""
-        self.name = name
-        return self
-
-    def add_column(self, column: Column) -> TableBuilder:
+    def with_column(self, column: Column) -> TableBuilder:
         """Adds a column to the table."""
         self.columns.append(column)
         return self
@@ -306,12 +301,12 @@ class TableBuilder:
         self.tags[key] = value
         return self
 
-    def create_or_replace(self) -> TableBuilder:
+    def with_create_or_replace(self) -> TableBuilder:
         """Sets the table to be created or replaced."""
         self.is_create_or_replace = True
         return self
 
-    def create_if_not_exists(self) -> TableBuilder:
+    def with_create_if_not_exists(self) -> TableBuilder:
         """Sets the table to be created only if it doesn't exist."""
         self.is_create_if_not_exists = True
         return self

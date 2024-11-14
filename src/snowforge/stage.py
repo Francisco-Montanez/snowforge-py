@@ -16,20 +16,23 @@ class StorageIntegration(str, Enum):
     S3_COMPATIBLE = "S3_COMPATIBLE"
 
 
+class InternalStageEncryptionType(str, Enum):
+    """Supported encryption types for internal stages."""
+
+    FULL = "SNOWFLAKE_FULL"
+    SSE = "SNOWFLAKE_SSE"
+
+
 @dataclass
 class InternalStageParams:
     """Parameters for internal stages."""
 
-    url: Optional[str] = None
-    encryption: Optional[Dict[str, str]] = None
+    encryption: Optional[InternalStageEncryptionType] = None
 
     def to_sql(self) -> str:
         parts = []
-        if self.url:
-            parts.append(f"URL = '{self.url}'")
         if self.encryption:
-            enc_parts = [f"{k} = '{v}'" for k, v in self.encryption.items()]
-            parts.append(f"ENCRYPTION = ({' '.join(enc_parts)})")
+            parts.append(f"ENCRYPTION = (TYPE = '{self.encryption.value}')")
         return " ".join(parts)
 
 
@@ -124,15 +127,29 @@ class DirectoryTableParams:
     def to_sql(self) -> str:
         parts = []
         if self.enable:
-            parts.append("ENABLE = true")
+            parts.append("ENABLE = TRUE")
         if self.refresh_on_create:
-            parts.append("REFRESH_ON_CREATE = true")
+            parts.append("REFRESH_ON_CREATE = TRUE")
         return f"DIRECTORY = ({' '.join(parts)})"
 
 
 @dataclass
 class InternalDirectoryTableParams(DirectoryTableParams):
-    pass
+    """
+    Directory table parameters for internal stages.
+
+    Attributes:
+        enable: Whether directory tables are enabled (default: True)
+        refresh_on_create: Whether to refresh directory tables on creation (default: True)
+    """
+
+    def to_sql(self) -> str:
+        parts = []
+        if self.enable:
+            parts.append("ENABLE = TRUE")
+        if self.refresh_on_create:
+            parts.append("REFRESH_ON_CREATE = TRUE")
+        return f"DIRECTORY = ({' '.join(parts)})"
 
 
 @dataclass
@@ -144,9 +161,9 @@ class S3DirectoryTableParams(DirectoryTableParams):
     def to_sql(self) -> str:
         parts = []
         if self.enable:
-            parts.append("ENABLE = true")
+            parts.append("ENABLE = TRUE")
         if self.refresh_on_create:
-            parts.append("REFRESH_ON_CREATE = true")
+            parts.append("REFRESH_ON_CREATE = TRUE")
         if self.aws_sns_topic:
             parts.append(f"AWS_SNS_TOPIC = '{self.aws_sns_topic}'")
         if self.aws_role:
@@ -163,9 +180,9 @@ class GCSDirectoryTableParams(DirectoryTableParams):
     def to_sql(self) -> str:
         parts = []
         if self.enable:
-            parts.append("ENABLE = true")
+            parts.append("ENABLE = TRUE")
         if self.refresh_on_create:
-            parts.append("REFRESH_ON_CREATE = true")
+            parts.append("REFRESH_ON_CREATE = TRUE")
         if self.notification_integration:
             parts.append(f"NOTIFICATION_INTEGRATION = {self.notification_integration}")
         return f"DIRECTORY = ({' '.join(parts)})"
@@ -178,9 +195,9 @@ class AzureDirectoryTableParams(DirectoryTableParams):
     def to_sql(self) -> str:
         parts = []
         if self.enable:
-            parts.append("ENABLE = true")
+            parts.append("ENABLE = TRUE")
         if self.refresh_on_create:
-            parts.append("REFRESH_ON_CREATE = true")
+            parts.append("REFRESH_ON_CREATE = TRUE")
         if self.notification_integration:
             parts.append(f"NOTIFICATION_INTEGRATION = {self.notification_integration}")
         return f"DIRECTORY = ({' '.join(parts)})"
@@ -233,9 +250,9 @@ class Stage:
         self.is_temporary = is_temporary
 
     @classmethod
-    def builder(cls) -> StageBuilder:
+    def builder(cls, name: str) -> StageBuilder:
         """Creates a new StageBuilder instance."""
-        return StageBuilder()
+        return StageBuilder(name)
 
     def to_sql(self) -> str:
         """Generates the SQL statement for the stage."""
@@ -278,8 +295,8 @@ class Stage:
 class StageBuilder:
     """Builder for Stage instances."""
 
-    def __init__(self):
-        self.name = None
+    def __init__(self, name: str):
+        self.name = name
         self.stage_params = None
         self.directory_table_params = None
         self.file_format = None
@@ -288,11 +305,6 @@ class StageBuilder:
         self.is_create_or_replace = False
         self.is_create_if_not_exists = False
         self.is_temporary = False
-
-    def with_name(self, name: str) -> StageBuilder:
-        """Sets the stage name."""
-        self.name = name
-        return self
 
     def with_stage_params(
         self,
@@ -336,17 +348,17 @@ class StageBuilder:
         self.tags[key] = value
         return self
 
-    def create_or_replace(self) -> StageBuilder:
+    def with_create_or_replace(self) -> StageBuilder:
         """Sets the stage to be created or replaced."""
         self.is_create_or_replace = True
         return self
 
-    def create_if_not_exists(self) -> StageBuilder:
+    def with_create_if_not_exists(self) -> StageBuilder:
         """Sets the stage to be created only if it doesn't exist."""
         self.is_create_if_not_exists = True
         return self
 
-    def temporary(self) -> StageBuilder:
+    def with_temporary(self) -> StageBuilder:
         """Sets the stage as temporary."""
         self.is_temporary = True
         return self
