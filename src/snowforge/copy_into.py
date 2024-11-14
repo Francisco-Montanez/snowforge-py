@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 
 class CopyIntoTarget:
@@ -153,7 +153,16 @@ class CopyIntoOptionsBuilder:
         self.return_failed_only = return_failed_only
         return self
 
-    def with_on_error(self, on_error: str) -> 'CopyIntoOptionsBuilder':
+    def with_on_error(
+        self,
+        on_error: Literal[
+            "CONTINUE",
+            "SKIP_FILE",
+            "SKIP_FILE_<num>",
+            "SKIP_FILE_<num>%",
+            "ABORT_STATEMENT",
+        ],
+    ) -> 'CopyIntoOptionsBuilder':
         """Sets the on_error behavior."""
         self.on_error = on_error
         return self
@@ -180,7 +189,7 @@ class CopyIntoOptionsBuilder:
         self.enforce_length = enforce_length
         return self
 
-    def with_truncatecolumns(self, truncatecolumns: bool) -> 'CopyIntoOptionsBuilder':
+    def with_truncate_columns(self, truncatecolumns: bool) -> 'CopyIntoOptionsBuilder':
         """Sets whether to truncate columns."""
         self.truncatecolumns = truncatecolumns
         return self
