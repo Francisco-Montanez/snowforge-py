@@ -50,7 +50,7 @@ class Put:
     file_path: Path
     stage: InternalStage
     parallel: Optional[int] = None
-    auto_compress: bool = True
+    auto_compress: bool = False
     source_compression: CompressionType = CompressionType.AUTO
     overwrite: bool = False
 
@@ -69,20 +69,20 @@ class Put:
         parts = ["PUT"]
 
         # Convert to absolute path and format properly
-        abs_path = str(Path(self.file_path).absolute())
-        if not abs_path.startswith('/'):
-            abs_path = '/' + abs_path
-        parts.append(f"'file://{abs_path}'")
+        file_path = str(self.file_path.absolute())
+        if not file_path.startswith('/'):
+            file_path = '/' + file_path
+        parts.append(f"'file://{file_path}'")
 
-        # Add stage
+        # Add stage reference (without INTO)
         parts.append(str(self.stage))
 
-        # Add options
+        # Add optional parameters
         if self.parallel is not None:
             parts.append(f"PARALLEL = {self.parallel}")
 
-        if self.auto_compress:
-            parts.append("AUTO_COMPRESS = TRUE")
+        # Explicitly include AUTO_COMPRESS
+        parts.append(f"AUTO_COMPRESS = {str(self.auto_compress).upper()}")
 
         if self.source_compression != CompressionType.AUTO:
             parts.append(f"SOURCE_COMPRESSION = {self.source_compression}")
@@ -100,7 +100,7 @@ class PutBuilder:
         self.file_path: Optional[Path] = None
         self.stage: Optional[InternalStage] = None
         self.parallel: Optional[int] = None
-        self.auto_compress: bool = True
+        self.auto_compress: bool = False
         self.source_compression: CompressionType = CompressionType.AUTO
         self.overwrite: bool = False
 
