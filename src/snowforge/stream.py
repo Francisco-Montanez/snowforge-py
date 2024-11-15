@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Optional, Union
+from typing import Dict, Optional
 
 
 class StreamMode(str, Enum):
@@ -42,9 +42,9 @@ class Stream:
     is_create_if_not_exists: bool = False
 
     @classmethod
-    def builder(cls) -> StreamBuilder:
+    def builder(cls, name: str) -> StreamBuilder:
         """Creates a new StreamBuilder instance."""
-        return StreamBuilder()
+        return StreamBuilder(name=name)
 
     def to_sql(self) -> str:
         """Generates the SQL statement for the stream."""
@@ -61,29 +61,21 @@ class Stream:
             parts.append("IF NOT EXISTS")
 
         parts.append(self.name)
-        parts.append(f"ON {self.source}")
 
-        if self.mode:
-            parts.append(f"MODE = {self.mode.value}")
+        if self.tags:
+            tag_parts = [f"{k} = '{v}'" for k, v in self.tags.items()]
+            parts.append(f"WITH TAG ({', '.join(tag_parts)})")
 
-        if self.type:
-            parts.append(f"TYPE = {self.type.value}")
-
-        if self.insert_only:
-            parts.append("INSERT_ONLY = TRUE")
-
-        if self.show_initial_rows:
-            parts.append("SHOW_INITIAL_ROWS = TRUE")
+        parts.append(f"ON TABLE {self.source}")
 
         if self.append_only:
             parts.append("APPEND_ONLY = TRUE")
 
+        if self.show_initial_rows:
+            parts.append("SHOW_INITIAL_ROWS = TRUE")
+
         if self.comment:
             parts.append(f"COMMENT = '{self.comment.replace(chr(39), chr(39)*2)}'")
-
-        if self.tags:
-            tag_parts = [f"{k} = '{v}'" for k, v in self.tags.items()]
-            parts.append(f"TAGS = ({' '.join(tag_parts)})")
 
         return " ".join(parts)
 
@@ -91,8 +83,8 @@ class Stream:
 class StreamBuilder:
     """Builder for Stream configuration."""
 
-    def __init__(self):
-        self.name: Optional[str] = None
+    def __init__(self, name: str):
+        self.name = name
         self.source: Optional[str] = None
         self.mode: Optional[StreamMode] = None
         self.type: Optional[StreamType] = None
@@ -103,11 +95,6 @@ class StreamBuilder:
         self.tags: Dict[str, str] = {}
         self.is_create_or_replace: bool = False
         self.is_create_if_not_exists: bool = False
-
-    def with_name(self, name: str) -> StreamBuilder:
-        """Sets the stream name."""
-        self.name = name
-        return self
 
     def with_source(self, source: str) -> StreamBuilder:
         """Sets the source object."""
@@ -149,12 +136,12 @@ class StreamBuilder:
         self.tags = tags
         return self
 
-    def create_or_replace(self) -> StreamBuilder:
+    def with_create_or_replace(self) -> StreamBuilder:
         """Sets the stream to be created or replaced."""
         self.is_create_or_replace = True
         return self
 
-    def create_if_not_exists(self) -> StreamBuilder:
+    def with_create_if_not_exists(self) -> StreamBuilder:
         """Sets the stream to be created only if it doesn't exist."""
         self.is_create_if_not_exists = True
         return self
