@@ -98,9 +98,9 @@ class Task:
     is_create_if_not_exists: bool = False
 
     @classmethod
-    def builder(cls) -> TaskBuilder:
+    def builder(cls, name: str) -> TaskBuilder:
         """Creates a new TaskBuilder instance."""
-        return TaskBuilder()
+        return TaskBuilder(name=name)
 
     def to_sql(self) -> str:
         """
@@ -119,7 +119,7 @@ class Task:
 
         if self.tags:
             tag_parts = [f"{k} = '{v}'" for k, v in self.tags.items()]
-            parts.append(f"TAGS ({' '.join(tag_parts)})")
+            parts.append(f"WITH TAG ({', '.join(tag_parts)})")
 
         if self.warehouse:
             parts.append(f"WAREHOUSE = {self.warehouse}")
@@ -130,7 +130,9 @@ class Task:
             )
 
         if self.schedule:
-            parts.append(f"SCHEDULE = {self.schedule.to_sql()}")
+            schedule_sql = self.schedule.to_sql()
+            if schedule_sql:
+                parts.append(f"SCHEDULE = {schedule_sql}")
 
         if self.config:
             parts.append(f"CONFIG = '{self.config}'")
@@ -142,7 +144,7 @@ class Task:
 
         if self.session_parameters:
             param_parts = [f"{k} = '{v}'" for k, v in self.session_parameters.items()]
-            parts.append(f"SESSION_PARAMETERS = ({' '.join(param_parts)})")
+            parts.append(f"SESSION_PARAMETERS = ({', '.join(param_parts)})")
 
         if self.user_task_timeout_ms is not None:
             parts.append(f"USER_TASK_TIMEOUT_MS = {self.user_task_timeout_ms}")
@@ -170,17 +172,16 @@ class Task:
             )
 
         if self.after:
-            after_tasks = ", ".join(f"'{task}'" for task in self.after)
-            parts.append(f"AFTER ({after_tasks})")
+            after_tasks = ", ".join(self.after)
+            parts.append(f"AFTER {after_tasks}")
 
         if self.when:
             parts.append(f"WHEN {self.when}")
 
         parts.append("AS")
+        parts.append(self.sql_statement.strip())
 
-        parts.append(self.sql_statement)
-
-        return " ".join(parts)
+        return "\n".join(parts)
 
 
 @dataclass
@@ -208,11 +209,6 @@ class TaskBuilder:
     when: Optional[str] = None
     is_create_or_replace: bool = False
     is_create_if_not_exists: bool = False
-
-    def with_name(self, name: str) -> TaskBuilder:
-        """Sets the task name."""
-        self.name = name
-        return self
 
     def with_task_type(self, task_type: TaskType) -> TaskBuilder:
         """Sets the task type."""
@@ -294,22 +290,22 @@ class TaskBuilder:
         self.user_task_minimum_trigger_interval_in_seconds = interval_seconds
         return self
 
-    def after_tasks(self, tasks: List[str]) -> TaskBuilder:
+    def with_after_tasks(self, tasks: List[str]) -> TaskBuilder:
         """Sets the predecessor tasks."""
         self.after = tasks
         return self
 
-    def when_condition(self, condition: str) -> TaskBuilder:
+    def with_when_condition(self, condition: str) -> TaskBuilder:
         """Sets the condition for task execution."""
         self.when = condition
         return self
 
-    def create_or_replace(self) -> TaskBuilder:
+    def with_create_or_replace(self) -> TaskBuilder:
         """Sets the task to be created or replaced."""
         self.is_create_or_replace = True
         return self
 
-    def create_if_not_exists(self) -> TaskBuilder:
+    def with_create_if_not_exists(self) -> TaskBuilder:
         """Sets the task to be created only if it doesn't exist."""
         self.is_create_if_not_exists = True
         return self
