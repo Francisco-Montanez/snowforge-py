@@ -522,12 +522,10 @@ class WorkflowBuilder:
         replace: bool = False,
     ) -> WorkflowBuilder:
         """Creates a tag following Snowflake syntax."""
-        sql_parts = ["CREATE TAG"]
-
         if replace:
-            sql_parts.insert(1, "OR REPLACE")
+            sql_parts = ["CREATE OR REPLACE TAG"]
         else:
-            sql_parts.insert(1, "IF NOT EXISTS")
+            sql_parts = ["CREATE TAG IF NOT EXISTS"]
 
         sql_parts.append(f'{name}')
 
