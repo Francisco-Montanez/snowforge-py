@@ -1,0 +1,4 @@
+product_id,sku,name,description,price,category,created_at
+1,TECH-001,Laptop Pro X,High-performance laptop with 16GB RAM,999.99,Electronics,2024-11-14T05:56:41.534516+00:00
+2,TECH-002,Wireless Mouse,Ergonomic wireless mouse,29.99,Electronics,2024-11-14T05:56:41.534517+00:00
+3,HOME-001,Coffee Maker,12-cup programmable coffee maker,79.99,Home Appliances,2024-11-14T05:56:41.534518+00:00

@@ -1,0 +1,3 @@
+user_id,email,password_hash,first_name,last_name,created_at,updated_at
+1,john.doe@example.com,e10adc3949ba59abbe56e057f20f883e,John,Doe,2024-11-14T05:56:41.534508+00:00,2024-11-14T05:56:41.534513+00:00
+2,jane.smith@example.com,f30aa7a662c728b7407c54ae6bfd27d1,Jane,Smith,2024-11-14T05:56:41.534514+00:00,2024-11-14T05:56:41.534515+00:00
