@@ -3,7 +3,10 @@ from snowforge.copy_into import (
     CopyIntoOptions,
     CopyIntoSource,
     CopyIntoTarget,
+    MatchByColumnName,
+    OnError,
 )
+from snowforge.file_format import FileFormatSpecification
 from snowforge.forge import Forge, SnowflakeConfig
 
 # Create COPY INTO for users table
@@ -11,12 +14,12 @@ users_copy = (
     CopyInto.builder()
     .with_source(CopyIntoSource.stage("USER_DATA_STAGE"))
     .with_target(CopyIntoTarget.table("USERS"))
+    .with_pattern(".*users[.]csv")
+    .with_file_format(FileFormatSpecification.named("CSV_FORMAT"))
     .with_options(
         CopyIntoOptions.builder()
-        .with_pattern(".*users[.]csv")
-        .with_file_format("CSV_FORMAT")
-        .with_match_by_column_name("CASE_INSENSITIVE")
-        .with_on_error("SKIP_FILE")
+        .with_match_by_column_name(MatchByColumnName.CASE_INSENSITIVE)
+        .with_on_error(OnError.SKIP_FILE)
         .with_purge(True)
         .build()
     )
@@ -28,12 +31,12 @@ products_copy = (
     CopyInto.builder()
     .with_source(CopyIntoSource.stage("PRODUCT_DATA_STAGE"))
     .with_target(CopyIntoTarget.table("PRODUCTS"))
+    .with_pattern(".*products[.]csv")
+    .with_file_format(FileFormatSpecification.named("CSV_FORMAT"))
     .with_options(
         CopyIntoOptions.builder()
-        .with_pattern(".*products[.]csv")
-        .with_file_format("CSV_FORMAT")
-        .with_match_by_column_name("CASE_INSENSITIVE")
-        .with_on_error("SKIP_FILE")
+        .with_match_by_column_name(MatchByColumnName.CASE_INSENSITIVE)
+        .with_on_error(OnError.SKIP_FILE)
         .with_purge(True)
         .build()
     )
