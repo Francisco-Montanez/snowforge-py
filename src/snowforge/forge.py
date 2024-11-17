@@ -295,7 +295,7 @@ class Forge:
 
     def create_file_format(self, file_format: FileFormat) -> None:
         """Creates a file format in Snowflake."""
-        sql = file_format.sql_statement
+        sql = file_format.to_sql()
         logger.info(f"Creating file format: {file_format.name}")
         self.execute_sql(sql)
 
