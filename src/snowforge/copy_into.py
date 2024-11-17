@@ -8,11 +8,14 @@ from snowforge.file_format import FileFormatSpecification
 
 
 class OnError(Enum):
+    """Specifies the behavior when an error occurs during a COPY INTO operation."""
+
     ABORT_STATEMENT = "ABORT_STATEMENT"
     CONTINUE = "CONTINUE"
     SKIP_FILE = "SKIP_FILE"
 
     def __str__(self) -> str:
+        """Returns the string representation of the OnError enum."""
         return self.value
 
     @classmethod
@@ -27,16 +30,21 @@ class OnError(Enum):
 
 
 class MatchByColumnName(Enum):
+    """Specifies the column matching strategy for a COPY INTO operation."""
+
     CASE_INSENSITIVE = "CASE_INSENSITIVE"
     CASE_SENSITIVE = "CASE_SENSITIVE"
     NONE = "NONE"
 
 
 class ValidationMode(Enum):
+    """Specifies the validation mode for a COPY INTO operation."""
+
     RETURN_ALL_ERRORS = "RETURN_ALL_ERRORS"
     RETURN_ERRORS = "RETURN_ERRORS"
 
     def __str__(self) -> str:
+        """Returns the string representation of the ValidationMode enum."""
         return self.value
 
     @classmethod
@@ -56,6 +64,7 @@ class CopyIntoTarget:
     """
 
     def __init__(self, name: str, target_type: Literal["table", "stage"]):
+        """Initializes a CopyIntoTarget instance."""
         self.name = name
         self.target_type = target_type
 
@@ -70,6 +79,7 @@ class CopyIntoTarget:
         return cls(name, "table")
 
     def to_sql(self) -> str:
+        """Returns the SQL representation of the target."""
         return self.name
 
 
@@ -84,6 +94,7 @@ class CopyIntoSource:
     """
 
     def __init__(self, name: str, source_type: Literal["table", "stage"]):
+        """Initializes a CopyIntoSource instance."""
         self.name = name
         self.source_type = source_type
 
@@ -98,6 +109,7 @@ class CopyIntoSource:
         return cls(name, "table")
 
     def to_sql(self) -> str:
+        """Returns the SQL representation of the source."""
         if self.source_type == "stage":
             return f"@{self.name}"
         return self.name
@@ -142,6 +154,7 @@ class CopyIntoOptions:
         return CopyIntoOptionsBuilder()
 
     def to_sql(self) -> str:
+        """Returns the SQL representation of the options."""
         parts = []
 
         if self.return_failed_only:
@@ -183,6 +196,7 @@ class CopyIntoOptionsBuilder:
     """
 
     def __init__(self):
+        """Initializes a CopyIntoOptionsBuilder instance."""
         self.enforce_length: bool = False
         self.file_processor: Optional[str] = None
         self.force: bool = False
@@ -198,14 +212,17 @@ class CopyIntoOptionsBuilder:
     def build(self) -> CopyIntoOptions:
         """Builds and returns a new CopyIntoOptions instance."""
         return CopyIntoOptions(
-            return_failed_only=self.return_failed_only,
-            on_error=self.on_error,
-            size_limit=self.size_limit,
-            purge=self.purge,
-            match_by_column_name=self.match_by_column_name,
             enforce_length=self.enforce_length,
-            truncate_columns=self.truncate_columns,
+            file_processor=self.file_processor,
             force=self.force,
+            include_metadata=self.include_metadata,
+            load_uncertain_files=self.load_uncertain_files,
+            match_by_column_name=self.match_by_column_name,
+            on_error=self.on_error,
+            purge=self.purge,
+            return_failed_only=self.return_failed_only,
+            size_limit=self.size_limit,
+            truncate_columns=self.truncate_columns,
         )
 
     def with_enforce_length(self, enforce_length: bool) -> 'CopyIntoOptionsBuilder':
@@ -297,10 +314,10 @@ class CopyInto:
 
     source: CopyIntoSource
     target: CopyIntoTarget
+    file_format: Optional[FileFormatSpecification] = None
+    files: Optional[List[str]] = None
     options: CopyIntoOptions = CopyIntoOptions()
     pattern: Optional[str] = None
-    files: Optional[List[str]] = None
-    file_format: Optional[FileFormatSpecification] = None
     validation_mode: Optional[ValidationMode] = None
 
     @classmethod
@@ -333,12 +350,13 @@ class CopyIntoBuilder:
     """Builder for CopyInto."""
 
     def __init__(self):
-        self.target: Optional[CopyIntoTarget] = None
-        self.source: Optional[CopyIntoSource] = None
-        self.pattern: Optional[str] = None
-        self.files: Optional[List[str]] = None
+        """Initializes a CopyIntoBuilder instance."""
         self.file_format: Optional[FileFormatSpecification] = None
+        self.files: Optional[List[str]] = None
         self.options: CopyIntoOptions = CopyIntoOptions()
+        self.pattern: Optional[str] = None
+        self.source: Optional[CopyIntoSource] = None
+        self.target: Optional[CopyIntoTarget] = None
         self.validation_mode: Optional[ValidationMode] = None
 
     def with_files(self, files: List[str]) -> 'CopyIntoBuilder':
@@ -388,11 +406,11 @@ class CopyIntoBuilder:
             raise ValueError("source must be set")
 
         return CopyInto(
-            target=self.target,
-            source=self.source,
+            file_format=self.file_format,
+            files=self.files,
             options=self.options,
             pattern=self.pattern,
-            files=self.files,
-            file_format=self.file_format,
+            source=self.source,
+            target=self.target,
             validation_mode=self.validation_mode,
         )
