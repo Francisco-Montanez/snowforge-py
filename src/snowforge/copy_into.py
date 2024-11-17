@@ -8,9 +8,12 @@ from snowforge.file_format import FileFormatSpecification
 
 
 class OnError(Enum):
+    ABORT_STATEMENT = "ABORT_STATEMENT"
     CONTINUE = "CONTINUE"
     SKIP_FILE = "SKIP_FILE"
-    ABORT_STATEMENT = "ABORT_STATEMENT"
+
+    def __str__(self) -> str:
+        return self.value
 
     @classmethod
     def skip_file_num(cls, num: int) -> str:
@@ -22,27 +25,24 @@ class OnError(Enum):
         """Creates a SKIP_FILE_{num}% option with the specified percentage."""
         return f"SKIP_FILE_{num}%"
 
-    def __str__(self) -> str:
-        return self.value
-
 
 class MatchByColumnName(Enum):
-    CASE_SENSITIVE = "CASE_SENSITIVE"
     CASE_INSENSITIVE = "CASE_INSENSITIVE"
+    CASE_SENSITIVE = "CASE_SENSITIVE"
     NONE = "NONE"
 
 
 class ValidationMode(Enum):
-    RETURN_ERRORS = "RETURN_ERRORS"
     RETURN_ALL_ERRORS = "RETURN_ALL_ERRORS"
+    RETURN_ERRORS = "RETURN_ERRORS"
+
+    def __str__(self) -> str:
+        return self.value
 
     @classmethod
     def return_n_rows(cls, n: int) -> str:
         """Creates a RETURN_{n}_ROWS option with the specified number of rows."""
         return f"RETURN_{n}_ROWS"
-
-    def __str__(self) -> str:
-        return self.value
 
 
 class CopyIntoTarget:
@@ -60,14 +60,14 @@ class CopyIntoTarget:
         self.target_type = target_type
 
     @classmethod
-    def table(cls, name: str) -> 'CopyIntoTarget':
-        """Creates a table target."""
-        return cls(name, "table")
-
-    @classmethod
     def stage(cls, name: str) -> CopyIntoTarget:
         """Creates a stage target."""
         return cls(name, "stage")
+
+    @classmethod
+    def table(cls, name: str) -> 'CopyIntoTarget':
+        """Creates a table target."""
+        return cls(name, "table")
 
     def to_sql(self) -> str:
         return self.name
@@ -88,14 +88,14 @@ class CopyIntoSource:
         self.source_type = source_type
 
     @classmethod
-    def table(cls, name: str) -> CopyIntoSource:
-        """Creates a table source."""
-        return cls(name, "table")
-
-    @classmethod
     def stage(cls, name: str) -> CopyIntoSource:
         """Creates a stage source."""
         return cls(name, "stage")
+
+    @classmethod
+    def table(cls, name: str) -> CopyIntoSource:
+        """Creates a table source."""
+        return cls(name, "table")
 
     def to_sql(self) -> str:
         if self.source_type == "stage":
@@ -112,18 +112,16 @@ class CopyIntoOptions:
 
     Attributes:
         enforce_length (bool): Whether to enforce length constraints
-        file_format (Optional[str]): Snowflake file format specification
-        files (Optional[List[str]]): Specific files to load
+        file_processor (Optional[str]): File processor to use
         force (bool): Whether to force the operation
-        match_by_column_name (MatchByColumnName): Column matching strategy
+        include_metadata (Optional[Dict[str, str]]): Metadata to include
+        load_uncertain_files (bool): Whether to load uncertain files
+        match_by_column_name (Optional[MatchByColumnName]): Column matching strategy
         on_error (Optional[OnError]): Error handling behavior
-        pattern (Optional[str]): File pattern to match source files
-        pattern_type (Optional[str]): Type of pattern matching to use
         purge (bool): Whether to purge source files after loading
         return_failed_only (bool): Whether to return only failed records
         size_limit (Optional[int]): Maximum size of data to load
         truncate_columns (bool): Whether to truncate columns that exceed target length
-        validation_mode (Optional[str]): Mode for validating data
     """
 
     enforce_length: bool = False
@@ -180,87 +178,22 @@ class CopyIntoOptionsBuilder:
 
     Example:
         >>> options = CopyIntoOptionsBuilder()\\
-        ...     .with_pattern('*.csv')\\
-        ...     .with_file_format('my_csv_format')\\
-        ...     .with_on_error('CONTINUE')\\
+        ...     .with_on_error(OnError.CONTINUE)\\
         ...     .build()
     """
 
     def __init__(self):
-        self.return_failed_only: bool = False
-        self.on_error: Optional[OnError] = None
-        self.size_limit: Optional[int] = None
-        self.purge: bool = False
-        self.match_by_column_name: Optional[MatchByColumnName] = None
         self.enforce_length: bool = False
-        self.truncate_columns: bool = False
-        self.force: bool = False
-        self.load_uncertain_files: bool = False
         self.file_processor: Optional[str] = None
+        self.force: bool = False
         self.include_metadata: Optional[Dict[str, str]] = None
-
-    def with_return_failed_only(
-        self, return_failed_only: bool
-    ) -> 'CopyIntoOptionsBuilder':
-        """Sets whether to return only failed records."""
-        self.return_failed_only = return_failed_only
-        return self
-
-    def with_on_error(self, on_error: OnError) -> 'CopyIntoOptionsBuilder':
-        """Sets the on_error behavior."""
-        self.on_error = on_error
-        return self
-
-    def with_size_limit(self, size_limit: int) -> 'CopyIntoOptionsBuilder':
-        """Sets the size limit for data to be loaded."""
-        self.size_limit = size_limit
-        return self
-
-    def with_purge(self, purge: bool) -> 'CopyIntoOptionsBuilder':
-        """Sets whether to purge files after loading."""
-        self.purge = purge
-        return self
-
-    def with_match_by_column_name(
-        self, match_by_column_name: MatchByColumnName
-    ) -> 'CopyIntoOptionsBuilder':
-        """Sets whether to match columns by name."""
-        self.match_by_column_name = match_by_column_name
-        return self
-
-    def with_enforce_length(self, enforce_length: bool) -> 'CopyIntoOptionsBuilder':
-        """Sets whether to enforce length constraints."""
-        self.enforce_length = enforce_length
-        return self
-
-    def with_truncate_columns(self, truncate_columns: bool) -> 'CopyIntoOptionsBuilder':
-        """Sets whether to truncate columns."""
-        self.truncate_columns = truncate_columns
-        return self
-
-    def with_force(self, force: bool) -> 'CopyIntoOptionsBuilder':
-        """Sets whether to force the operation."""
-        self.force = force
-        return self
-
-    def with_load_uncertain_files(
-        self, load_uncertain_files: bool
-    ) -> 'CopyIntoOptionsBuilder':
-        """Sets whether to load uncertain files."""
-        self.load_uncertain_files = load_uncertain_files
-        return self
-
-    def with_file_processor(self, file_processor: str) -> 'CopyIntoOptionsBuilder':
-        """Sets the file processor."""
-        self.file_processor = file_processor
-        return self
-
-    def with_include_metadata(
-        self, include_metadata: Dict[str, str]
-    ) -> 'CopyIntoOptionsBuilder':
-        """Sets the include metadata."""
-        self.include_metadata = include_metadata
-        return self
+        self.load_uncertain_files: bool = False
+        self.match_by_column_name: Optional[MatchByColumnName] = None
+        self.on_error: Optional[OnError] = None
+        self.purge: bool = False
+        self.return_failed_only: bool = False
+        self.size_limit: Optional[int] = None
+        self.truncate_columns: bool = False
 
     def build(self) -> CopyIntoOptions:
         """Builds and returns a new CopyIntoOptions instance."""
@@ -274,6 +207,69 @@ class CopyIntoOptionsBuilder:
             truncate_columns=self.truncate_columns,
             force=self.force,
         )
+
+    def with_enforce_length(self, enforce_length: bool) -> 'CopyIntoOptionsBuilder':
+        """Sets whether to enforce length constraints."""
+        self.enforce_length = enforce_length
+        return self
+
+    def with_file_processor(self, file_processor: str) -> 'CopyIntoOptionsBuilder':
+        """Sets the file processor."""
+        self.file_processor = file_processor
+        return self
+
+    def with_force(self, force: bool) -> 'CopyIntoOptionsBuilder':
+        """Sets whether to force the operation."""
+        self.force = force
+        return self
+
+    def with_include_metadata(
+        self, include_metadata: Dict[str, str]
+    ) -> 'CopyIntoOptionsBuilder':
+        """Sets the include metadata."""
+        self.include_metadata = include_metadata
+        return self
+
+    def with_load_uncertain_files(
+        self, load_uncertain_files: bool
+    ) -> 'CopyIntoOptionsBuilder':
+        """Sets whether to load uncertain files."""
+        self.load_uncertain_files = load_uncertain_files
+        return self
+
+    def with_match_by_column_name(
+        self, match_by_column_name: MatchByColumnName
+    ) -> 'CopyIntoOptionsBuilder':
+        """Sets whether to match columns by name."""
+        self.match_by_column_name = match_by_column_name
+        return self
+
+    def with_on_error(self, on_error: OnError) -> 'CopyIntoOptionsBuilder':
+        """Sets the on_error behavior."""
+        self.on_error = on_error
+        return self
+
+    def with_purge(self, purge: bool) -> 'CopyIntoOptionsBuilder':
+        """Sets whether to purge files after loading."""
+        self.purge = purge
+        return self
+
+    def with_return_failed_only(
+        self, return_failed_only: bool
+    ) -> 'CopyIntoOptionsBuilder':
+        """Sets whether to return only failed records."""
+        self.return_failed_only = return_failed_only
+        return self
+
+    def with_size_limit(self, size_limit: int) -> 'CopyIntoOptionsBuilder':
+        """Sets the size limit for data to be loaded."""
+        self.size_limit = size_limit
+        return self
+
+    def with_truncate_columns(self, truncate_columns: bool) -> 'CopyIntoOptionsBuilder':
+        """Sets whether to truncate columns."""
+        self.truncate_columns = truncate_columns
+        return self
 
 
 @dataclass
@@ -292,19 +288,19 @@ class CopyInto:
         >>> copy_into = CopyInto.builder()\\
         ...     .with_target(CopyIntoTarget.table("my_table"))\\
         ...     .with_source(CopyIntoSource.stage("my_stage"))\\
+        ...     .with_pattern('*.csv')
         ...     .with_options(CopyIntoOptions.builder()
-        ...         .with_pattern('*.csv')
         ...         .build())\\
         ...     .build()
         >>> sql = copy_into.to_sql()
     """
 
-    target: CopyIntoTarget
     source: CopyIntoSource
+    target: CopyIntoTarget
     options: CopyIntoOptions = CopyIntoOptions()
     pattern: Optional[str] = None
-    file_format: Optional[FileFormatSpecification] = None
     files: Optional[List[str]] = None
+    file_format: Optional[FileFormatSpecification] = None
     validation_mode: Optional[ValidationMode] = None
 
     @classmethod
@@ -345,14 +341,16 @@ class CopyIntoBuilder:
         self.options: CopyIntoOptions = CopyIntoOptions()
         self.validation_mode: Optional[ValidationMode] = None
 
-    def with_target(self, target: CopyIntoTarget) -> 'CopyIntoBuilder':
-        """Sets the target for the COPY INTO statement."""
-        self.target = target
+    def with_files(self, files: List[str]) -> 'CopyIntoBuilder':
+        """Sets the specific files to load."""
+        self.files = files
         return self
 
-    def with_source(self, source: CopyIntoSource) -> 'CopyIntoBuilder':
-        """Sets the source for the COPY INTO statement."""
-        self.source = source
+    def with_file_format(
+        self, file_format: FileFormatSpecification
+    ) -> 'CopyIntoBuilder':
+        """Sets the file format specification."""
+        self.file_format = file_format
         return self
 
     def with_options(self, options: CopyIntoOptions) -> 'CopyIntoBuilder':
@@ -365,16 +363,14 @@ class CopyIntoBuilder:
         self.pattern = pattern
         return self
 
-    def with_file_format(
-        self, file_format: FileFormatSpecification
-    ) -> 'CopyIntoBuilder':
-        """Sets the file format specification."""
-        self.file_format = file_format
+    def with_source(self, source: CopyIntoSource) -> 'CopyIntoBuilder':
+        """Sets the source for the COPY INTO statement."""
+        self.source = source
         return self
 
-    def with_files(self, files: List[str]) -> 'CopyIntoBuilder':
-        """Sets the specific files to load."""
-        self.files = files
+    def with_target(self, target: CopyIntoTarget) -> 'CopyIntoBuilder':
+        """Sets the target for the COPY INTO statement."""
+        self.target = target
         return self
 
     def with_validation_mode(
