@@ -37,17 +37,21 @@ def sql_format_boolean(value: bool) -> str:
     return str(value).upper()
 
 
-def sql_format_list(values: List[str]) -> str:
-    """Formats a list of strings for SQL, with proper escaping.
+def sql_format_list(values: List[str], quote_values: bool = True) -> str:
+    """Formats a list of strings for SQL, with optional quoting.
 
     Args:
         values: List of strings to format
+        quote_values: Whether to quote the values (default: True)
 
     Returns:
         SQL-formatted string representation of the list
     """
-    quoted_values = [sql_quote_string(val) for val in values]
-    return f"({', '.join(quoted_values)})"
+    if quote_values:
+        formatted_values = [sql_quote_string(val) for val in values]
+    else:
+        formatted_values = values
+    return f"({', '.join(formatted_values)})"
 
 
 def sql_format_value(value: Union[bool, str, int, float, None]) -> str:
@@ -69,19 +73,23 @@ def sql_format_value(value: Union[bool, str, int, float, None]) -> str:
         return sql_quote_string(str(value))
 
 
-def sql_format_dict(values: Dict[str, str]) -> str:
-    """Formats a dictionary for SQL, with proper escaping.
+def sql_format_dict(d: Dict[str, str]) -> str:
+    """Formats a dictionary for SQL.
+
+    For tags in Snowflake, the format should be:
+    tag (key1 = 'value1', key2 = 'value2')
 
     Args:
-        values: Dictionary to format
+        d: Dictionary to format
 
     Returns:
-        SQL-formatted string representation of the dictionary
+        Formatted string for SQL
     """
-    parts = []
-    for key, value in values.items():
-        parts.append(f"{sql_quote_string(key)} = {sql_format_value(value)}")
-    return f"({', '.join(parts)})"
+    if not d:
+        return ""
+
+    pairs = [f"{k} = {sql_quote_string(v)}" for k, v in d.items()]
+    return f"({', '.join(pairs)})"
 
 
 def sql_escape_comment(value: str) -> str:
@@ -111,3 +119,34 @@ def sql_quote_comment(value: str) -> str:
         Quoted and escaped comment string safe for SQL
     """
     return f"'{sql_escape_comment(value)}'"
+
+
+def sql_format_tag(key: str, value: str) -> str:
+    """Formats a single tag for SQL.
+
+    For table tags in Snowflake, the format should be:
+    tag (key = 'value')
+
+    Args:
+        key: Tag key
+        value: Tag value
+
+    Returns:
+        Formatted string for SQL
+    """
+    return f"TAG ({key} = {sql_quote_string(value)})"
+
+
+def sql_format_tags(tags: Dict[str, str]) -> str:
+    """Formats multiple tags for SQL.
+
+    Args:
+        tags: Dictionary of tags
+
+    Returns:
+        Formatted string for SQL
+    """
+    if not tags:
+        return ""
+
+    return f"{' '.join(sql_format_dict(tags).split(', '))}"
