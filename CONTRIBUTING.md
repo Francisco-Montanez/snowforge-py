@@ -76,3 +76,7 @@ git checkout -b feature/your-feature-name
 ## License
 
 By contributing, you agree that your contributions will be licensed under its GPL-3.0 License.
+
+## Local Testing
+
+To run tests locally using Act (GitHub Actions locally):
