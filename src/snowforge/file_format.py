@@ -5,6 +5,13 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import List, Literal, Optional, Union
 
+from snowforge.utilities import (
+    sql_escape_string,
+    sql_format_boolean,
+    sql_format_list,
+    sql_quote_string,
+)
+
 
 class BinaryFormat(Enum):
     """Supported binary format types for Snowflake file formats.
@@ -152,7 +159,7 @@ class FileFormat:
             parts.append(self.options.to_sql())
 
         if self.comment:
-            parts.append(f"COMMENT = '{self.comment.replace(chr(39), chr(39)*2)}'")
+            parts.append(f"COMMENT = {sql_quote_string(self.comment)}")
 
         return " ".join(parts)
 
@@ -256,7 +263,7 @@ class FileFormatSpecification:
     def to_sql(self) -> str:
         """Converts the FileFormatSpecification instance to a SQL string."""
         if self.type == "named":
-            return f"FORMAT_NAME = '{self.value}'"
+            return f"FORMAT_NAME = {sql_quote_string(str(self.value))}"
         if isinstance(self.value, FileFormat):
             return self.value.options.to_sql() if self.value.options else ""
         return ""
@@ -294,16 +301,15 @@ class AvroOptions(FileFormatOptions):
         parts = ["TYPE = AVRO"]
 
         if self.compression:
-            parts.append(f"COMPRESSION = {self.compression}")
+            parts.append(f"COMPRESSION = {str(self.compression)}")
         if self.trim_space is not None:
-            parts.append(f"TRIM_SPACE = {str(self.trim_space).upper()}")
+            parts.append(f"TRIM_SPACE = {sql_format_boolean(self.trim_space)}")
         if self.replace_invalid_characters is not None:
             parts.append(
-                f"REPLACE_INVALID_CHARACTERS = {str(self.replace_invalid_characters).upper()}"
+                f"REPLACE_INVALID_CHARACTERS = {sql_format_boolean(self.replace_invalid_characters)}"
             )
         if self.null_if:
-            null_if_str = ", ".join(f"'{val}'" for val in self.null_if)
-            parts.append(f"NULL_IF = ({null_if_str})")
+            parts.append(f"NULL_IF = {sql_format_list(self.null_if)}")
 
         return " ".join(parts)
 
@@ -398,23 +404,24 @@ class ParquetOptions(FileFormatOptions):
         parts = ["TYPE = PARQUET"]
 
         if self.compression:
-            parts.append(f"COMPRESSION = {self.compression}")
+            parts.append(f"COMPRESSION = {str(self.compression)}")
         if self.binary_as_text is not None:
-            parts.append(f"BINARY_AS_TEXT = {str(self.binary_as_text).upper()}")
+            parts.append(f"BINARY_AS_TEXT = {sql_format_boolean(self.binary_as_text)}")
         if self.use_logical_type is not None:
-            parts.append(f"USE_LOGICAL_TYPE = {str(self.use_logical_type).upper()}")
+            parts.append(
+                f"USE_LOGICAL_TYPE = {sql_format_boolean(self.use_logical_type)}"
+            )
         if self.trim_space is not None:
-            parts.append(f"TRIM_SPACE = {str(self.trim_space).upper()}")
+            parts.append(f"TRIM_SPACE = {sql_format_boolean(self.trim_space)}")
         if self.replace_invalid_characters is not None:
             parts.append(
-                f"REPLACE_INVALID_CHARACTERS = {str(self.replace_invalid_characters).upper()}"
+                f"REPLACE_INVALID_CHARACTERS = {sql_format_boolean(self.replace_invalid_characters)}"
             )
         if self.null_if:
-            null_if_str = ", ".join(f"'{val}'" for val in self.null_if)
-            parts.append(f"NULL_IF = ({null_if_str})")
+            parts.append(f"NULL_IF = {sql_format_list(self.null_if)}")
         if self.use_vectorized_scanner is not None:
             parts.append(
-                f"USE_VECTORIZED_SCANNER = {str(self.use_vectorized_scanner).upper()}"
+                f"USE_VECTORIZED_SCANNER = {sql_format_boolean(self.use_vectorized_scanner)}"
             )
 
         return " ".join(parts)
@@ -539,40 +546,49 @@ class JsonOptions(FileFormatOptions):
         parts = ["TYPE = JSON"]
 
         if self.compression:
-            parts.append(f"COMPRESSION = {self.compression}")
+            parts.append(f"COMPRESSION = {str(self.compression)}")
         if self.date_format:
-            parts.append(f"DATE_FORMAT = '{self.date_format}'")
+            parts.append(f"DATE_FORMAT = {sql_quote_string(self.date_format)}")
         if self.time_format:
-            parts.append(f"TIME_FORMAT = '{self.time_format}'")
+            parts.append(f"TIME_FORMAT = {sql_quote_string(self.time_format)}")
         if self.timestamp_format:
-            parts.append(f"TIMESTAMP_FORMAT = '{self.timestamp_format}'")
+            parts.append(
+                f"TIMESTAMP_FORMAT = {sql_quote_string(self.timestamp_format)}"
+            )
         if self.binary_format:
-            parts.append(f"BINARY_FORMAT = {self.binary_format}")
+            parts.append(f"BINARY_FORMAT = {str(self.binary_format)}")
         if self.trim_space is not None:
-            parts.append(f"TRIM_SPACE = {str(self.trim_space).upper()}")
+            parts.append(f"TRIM_SPACE = {sql_format_boolean(self.trim_space)}")
         if self.enable_octal is not None:
-            parts.append(f"ENABLE_OCTAL = {str(self.enable_octal).upper()}")
+            parts.append(f"ENABLE_OCTAL = {sql_format_boolean(self.enable_octal)}")
         if self.allow_duplicate is not None:
-            parts.append(f"ALLOW_DUPLICATE = {str(self.allow_duplicate).upper()}")
+            parts.append(
+                f"ALLOW_DUPLICATE = {sql_format_boolean(self.allow_duplicate)}"
+            )
         if self.strip_outer_array is not None:
-            parts.append(f"STRIP_OUTER_ARRAY = {str(self.strip_outer_array).upper()}")
+            parts.append(
+                f"STRIP_OUTER_ARRAY = {sql_format_boolean(self.strip_outer_array)}"
+            )
         if self.strip_null_values is not None:
-            parts.append(f"STRIP_NULL_VALUES = {str(self.strip_null_values).upper()}")
+            parts.append(
+                f"STRIP_NULL_VALUES = {sql_format_boolean(self.strip_null_values)}"
+            )
         if self.replace_invalid_characters is not None:
             parts.append(
-                f"REPLACE_INVALID_CHARACTERS = {str(self.replace_invalid_characters).upper()}"
+                f"REPLACE_INVALID_CHARACTERS = {sql_format_boolean(self.replace_invalid_characters)}"
             )
         if self.ignore_utf8_errors is not None:
-            parts.append(f"IGNORE_UTF8_ERRORS = {str(self.ignore_utf8_errors).upper()}")
+            parts.append(
+                f"IGNORE_UTF8_ERRORS = {sql_format_boolean(self.ignore_utf8_errors)}"
+            )
         if self.skip_byte_order_mark is not None:
             parts.append(
-                f"SKIP_BYTE_ORDER_MARK = {str(self.skip_byte_order_mark).upper()}"
+                f"SKIP_BYTE_ORDER_MARK = {sql_format_boolean(self.skip_byte_order_mark)}"
             )
         if self.file_extension:
-            parts.append(f"FILE_EXTENSION = '{self.file_extension}'")
+            parts.append(f"FILE_EXTENSION = {sql_quote_string(self.file_extension)}")
         if self.null_if:
-            null_if_str = ", ".join(f"'{val}'" for val in self.null_if)
-            parts.append(f"NULL_IF = ({null_if_str})")
+            parts.append(f"NULL_IF = {sql_format_list(self.null_if)}")
 
         return " ".join(parts)
 
@@ -765,58 +781,65 @@ class CsvOptions(FileFormatOptions):
         parts = ["TYPE = CSV"]
 
         if self.compression:
-            parts.append(f"COMPRESSION = {self.compression}")
+            parts.append(f"COMPRESSION = {str(self.compression)}")
         if self.record_delimiter:
-            parts.append(f"RECORD_DELIMITER = '{self.record_delimiter}'")
+            parts.append(
+                f"RECORD_DELIMITER = {sql_quote_string(self.record_delimiter)}"
+            )
         if self.field_delimiter:
-            parts.append(f"FIELD_DELIMITER = '{self.field_delimiter}'")
+            parts.append(f"FIELD_DELIMITER = {sql_quote_string(self.field_delimiter)}")
         if self.file_extension:
-            parts.append(f"FILE_EXTENSION = '{self.file_extension}'")
+            parts.append(f"FILE_EXTENSION = {sql_quote_string(self.file_extension)}")
         if self.parse_header is not None:
-            parts.append(f"PARSE_HEADER = {str(self.parse_header).upper()}")
+            parts.append(f"PARSE_HEADER = {sql_format_boolean(self.parse_header)}")
         if self.skip_header is not None:
             parts.append(f"SKIP_HEADER = {self.skip_header}")
         if self.skip_blank_lines is not None:
-            parts.append(f"SKIP_BLANK_LINES = {str(self.skip_blank_lines).upper()}")
+            parts.append(
+                f"SKIP_BLANK_LINES = {sql_format_boolean(self.skip_blank_lines)}"
+            )
         if self.date_format:
-            parts.append(f"DATE_FORMAT = '{self.date_format}'")
+            parts.append(f"DATE_FORMAT = {sql_quote_string(self.date_format)}")
         if self.time_format:
-            parts.append(f"TIME_FORMAT = '{self.time_format}'")
+            parts.append(f"TIME_FORMAT = {sql_quote_string(self.time_format)}")
         if self.timestamp_format:
-            parts.append(f"TIMESTAMP_FORMAT = '{self.timestamp_format}'")
+            parts.append(
+                f"TIMESTAMP_FORMAT = {sql_quote_string(self.timestamp_format)}"
+            )
         if self.binary_format:
-            parts.append(f"BINARY_FORMAT = {self.binary_format}")
+            parts.append(f"BINARY_FORMAT = {str(self.binary_format)}")
         if self.escape:
-            parts.append(f"ESCAPE = '{self.escape}'")
+            parts.append(f"ESCAPE = {sql_quote_string(self.escape)}")
         if self.escape_unenclosed_field:
-            parts.append(f"ESCAPE_UNENCLOSED_FIELD = '{self.escape_unenclosed_field}'")
+            parts.append(
+                f"ESCAPE_UNENCLOSED_FIELD = {sql_quote_string(sql_escape_string(self.escape_unenclosed_field))}"
+            )
         if self.trim_space is not None:
-            parts.append(f"TRIM_SPACE = {str(self.trim_space).upper()}")
+            parts.append(f"TRIM_SPACE = {sql_format_boolean(self.trim_space)}")
         if self.field_optionally_enclosed_by:
             parts.append(
                 f"FIELD_OPTIONALLY_ENCLOSED_BY = '{self.field_optionally_enclosed_by}'"
             )
         if self.null_if:
-            null_if_str = ", ".join(f"'{val}'" for val in self.null_if)
-            parts.append(f"NULL_IF = ({null_if_str})")
+            parts.append(f"NULL_IF = {sql_format_list(self.null_if)}")
         if self.error_on_column_count_mismatch is not None:
             parts.append(
-                f"ERROR_ON_COLUMN_COUNT_MISMATCH = {str(self.error_on_column_count_mismatch).upper()}"
+                f"ERROR_ON_COLUMN_COUNT_MISMATCH = {sql_format_boolean(self.error_on_column_count_mismatch)}"
             )
         if self.replace_invalid_characters is not None:
             parts.append(
-                f"REPLACE_INVALID_CHARACTERS = {str(self.replace_invalid_characters).upper()}"
+                f"REPLACE_INVALID_CHARACTERS = {sql_format_boolean(self.replace_invalid_characters)}"
             )
         if self.empty_field_as_null is not None:
             parts.append(
-                f"EMPTY_FIELD_AS_NULL = {str(self.empty_field_as_null).upper()}"
+                f"EMPTY_FIELD_AS_NULL = {sql_format_boolean(self.empty_field_as_null)}"
             )
         if self.skip_byte_order_mark is not None:
             parts.append(
-                f"SKIP_BYTE_ORDER_MARK = {str(self.skip_byte_order_mark).upper()}"
+                f"SKIP_BYTE_ORDER_MARK = {sql_format_boolean(self.skip_byte_order_mark)}"
             )
         if self.encoding:
-            parts.append(f"ENCODING = '{self.encoding}'")
+            parts.append(f"ENCODING = {sql_quote_string(self.encoding)}")
 
         return " ".join(parts)
 
@@ -1032,30 +1055,32 @@ class XmlOptions(FileFormatOptions):
         parts = ["TYPE = XML"]
 
         if self.compression:
-            parts.append(f"COMPRESSION = {self.compression}")
+            parts.append(f"COMPRESSION = {str(self.compression)}")
         if self.ignore_utf8_errors is not None:
-            parts.append(f"IGNORE_UTF8_ERRORS = {str(self.ignore_utf8_errors).upper()}")
+            parts.append(
+                f"IGNORE_UTF8_ERRORS = {sql_format_boolean(self.ignore_utf8_errors)}"
+            )
         if self.preserve_space is not None:
-            parts.append(f"PRESERVE_SPACE = {str(self.preserve_space).upper()}")
+            parts.append(f"PRESERVE_SPACE = {sql_format_boolean(self.preserve_space)}")
         if self.strip_outer_element is not None:
             parts.append(
-                f"STRIP_OUTER_ELEMENT = {str(self.strip_outer_element).upper()}"
+                f"STRIP_OUTER_ELEMENT = {sql_format_boolean(self.strip_outer_element)}"
             )
         if self.disable_snowflake_data is not None:
             parts.append(
-                f"DISABLE_SNOWFLAKE_DATA = {str(self.disable_snowflake_data).upper()}"
+                f"DISABLE_SNOWFLAKE_DATA = {sql_format_boolean(self.disable_snowflake_data)}"
             )
         if self.disable_auto_convert is not None:
             parts.append(
-                f"DISABLE_AUTO_CONVERT = {str(self.disable_auto_convert).upper()}"
+                f"DISABLE_AUTO_CONVERT = {sql_format_boolean(self.disable_auto_convert)}"
             )
         if self.replace_invalid_characters is not None:
             parts.append(
-                f"REPLACE_INVALID_CHARACTERS = {str(self.replace_invalid_characters).upper()}"
+                f"REPLACE_INVALID_CHARACTERS = {sql_format_boolean(self.replace_invalid_characters)}"
             )
         if self.skip_byte_order_mark is not None:
             parts.append(
-                f"SKIP_BYTE_ORDER_MARK = {str(self.skip_byte_order_mark).upper()}"
+                f"SKIP_BYTE_ORDER_MARK = {sql_format_boolean(self.skip_byte_order_mark)}"
             )
 
         return " ".join(parts)
@@ -1169,14 +1194,13 @@ class OrcOptions(FileFormatOptions):
         parts = ["TYPE = ORC"]
 
         if self.trim_space is not None:
-            parts.append(f"TRIM_SPACE = {str(self.trim_space).upper()}")
+            parts.append(f"TRIM_SPACE = {sql_format_boolean(self.trim_space)}")
         if self.replace_invalid_characters is not None:
             parts.append(
-                f"REPLACE_INVALID_CHARACTERS = {str(self.replace_invalid_characters).upper()}"
+                f"REPLACE_INVALID_CHARACTERS = {sql_format_boolean(self.replace_invalid_characters)}"
             )
         if self.null_if:
-            null_if_str = ", ".join(f"'{val}'" for val in self.null_if)
-            parts.append(f"NULL_IF = ({null_if_str})")
+            parts.append(f"NULL_IF = {sql_format_list(self.null_if)}")
 
         return " ".join(parts)
 

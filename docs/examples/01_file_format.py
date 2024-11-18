@@ -42,6 +42,28 @@ csv_format = (
     .build()
 )
 
+csv_format_with_escape = (
+    FileFormat.builder("csv_format_with_escape")
+    .with_create_or_replace()
+    .with_options(
+        CsvOptions(
+            compression=CompressionType.NONE,
+            trim_space=True,
+            field_delimiter="\t",
+            file_extension=".csv",
+            parse_header=True,
+            error_on_column_count_mismatch=False,
+            null_if=["NULL", ""],
+            escape="\\",
+            escape_unenclosed_field="\\",
+            field_optionally_enclosed_by='"',
+        )
+    )
+    .build()
+)
+
+print(csv_format_with_escape.to_sql())
+
 # 1.3 Create JSON File Format
 json_format = (
     FileFormat.builder("json_format")
@@ -105,5 +127,13 @@ with Forge(SnowflakeConfig.from_env()) as forge:
     forge.workflow().use_database(
         "OFFICIAL_TEST_DB", create_if_not_exists=True
     ).use_schema("OFFICIAL_TEST_SCHEMA", create_if_not_exists=True).add_file_formats(
-        [avro_format, csv_format, json_format, orc_format, parquet_format, xml_format]
+        [
+            avro_format,
+            csv_format,
+            csv_format_with_escape,
+            json_format,
+            orc_format,
+            parquet_format,
+            xml_format,
+        ]
     ).execute()
