@@ -57,13 +57,14 @@ def test_internal_stage_full_config(internal_stage_params, file_format):
         .with_tag("env", "test")
         .build()
     )
+
     expected = (
         'CREATE STAGE TEST_INTERNAL '
         "ENCRYPTION = (TYPE = 'SNOWFLAKE_SSE') "
         "DIRECTORY = (ENABLE = TRUE REFRESH_ON_CREATE = TRUE) "
         "FILE_FORMAT = (FORMAT_NAME = 'TEST_FORMAT') "
         "COMMENT = 'Test internal stage' "
-        "TAGS = ('env' = 'test')"
+        "TAG (env = 'test')"
     )
     assert stage.to_sql() == expected
 
@@ -80,7 +81,7 @@ def test_azure_external_stage():
         'CREATE STAGE TEST_AZURE '
         "URL = 'azure://container/path' "
         "STORAGE_INTEGRATION = AZURE_INT "
-        "ENCRYPTION = ('TYPE' = 'AZURE_CSE')"
+        "ENCRYPTION = (TYPE = 'AZURE_CSE')"
     )
     assert stage.to_sql() == expected
 

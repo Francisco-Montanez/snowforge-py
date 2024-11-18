@@ -113,8 +113,8 @@ def test_table_creation_complex(complex_table):
         "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP()"
         ") "
         "COMMENT = 'User accounts table' "
-        "CLUSTER BY ('email') "
-        "WITH TAG ('department' = 'hr', 'security_level' = 'high')"
+        "CLUSTER BY (email) "
+        "WITH TAG (department = 'hr', security_level = 'high')"
     )
     assert complex_table.to_sql() == expected
 

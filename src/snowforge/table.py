@@ -224,7 +224,9 @@ class Table:
             parts.append("COPY GRANTS")
 
         if self.cluster_by:
-            parts.append(f"CLUSTER BY {sql_format_list(self.cluster_by)}")
+            parts.append(
+                f"CLUSTER BY {sql_format_list(self.cluster_by, quote_values=False)}"
+            )
 
         if self.row_access_policy:
             policy = self.row_access_policy

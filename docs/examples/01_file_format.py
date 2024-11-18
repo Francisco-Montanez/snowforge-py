@@ -62,8 +62,6 @@ csv_format_with_escape = (
     .build()
 )
 
-print(csv_format_with_escape.to_sql())
-
 # 1.3 Create JSON File Format
 json_format = (
     FileFormat.builder("json_format")

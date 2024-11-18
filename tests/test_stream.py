@@ -117,7 +117,7 @@ def test_stream_with_tags():
     )
     expected = (
         "CREATE STREAM TEST_STREAM "
-        "WITH TAG ('env' = 'test', 'owner' = 'data_team') "
+        "WITH TAG (env = 'test', owner = 'data_team') "
         "ON TABLE TEST_TABLE"
     )
     assert stream.to_sql() == expected
@@ -127,7 +127,7 @@ def test_complex_stream_configuration(complex_stream):
     """Test creation of a stream with all available options."""
     expected = (
         "CREATE OR REPLACE STREAM COMPLEX_STREAM "
-        "WITH TAG ('env' = 'test', 'owner' = 'data_team') "
+        "WITH TAG (env = 'test', owner = 'data_team') "
         "ON TABLE TEST_DB.TEST_SCHEMA.TEST_TABLE "
         "APPEND_ONLY = TRUE "
         "SHOW_INITIAL_ROWS = TRUE "
