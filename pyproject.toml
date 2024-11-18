@@ -5,17 +5,69 @@ build-backend = "hatchling.build"
 [project]
 name = "snowforge"
 version = "0.1.0"
-authors = [{ name = "Your Name", email = "your.email@example.com" }]
+authors = [
+    { name = "Francisco Montanez", email = "32565971+Francisco-Montanez@users.noreply.github.com" },
+]
 description = "A Python library for managing Snowflake workflows"
 readme = "README.md"
-requires-python = ">=3.7"
-dependencies = ["snowflake-connector-python", "python-dotenv"]
+requires-python = ">=3.9,<3.12"
+license = "GPL-3.0"
+keywords = ["snowflake", "data", "workflow", "data-engineering"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Database",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = ["snowflake-connector-python>=3.0.0", "python-dotenv>=1.0.0"]
 
 [project.optional-dependencies]
-dev = ["pytest", "black", "isort", "mypy"]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-mock>=3.10.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "mypy>=1.0.0",
+]
+docs = ["sphinx>=7.0.0", "sphinx-rtd-theme>=1.3.0"]
+
+[tool.hatch.version]
+path = "src/snowforge/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/snowforge"]
 
-[tool.hatch.build.targets.sdist]
-packages = ["src/snowforge"]
+[tool.hatch.envs.default]
+dependencies = [
+    "pytest>=7.0.0",
+    "pytest-mock>=3.10.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "mypy>=1.0.0",
+]
+
+[tool.hatch.envs.default.scripts]
+test = "pytest {args:tests}"
+lint = ["black .", "isort .", "mypy src/snowforge tests"]
+format = ["black .", "isort ."]
+
+[tool.hatch.envs.docs]
+dependencies = ["sphinx>=7.0.0", "sphinx-rtd-theme>=1.3.0"]
+
+[tool.hatch.envs.docs.scripts]
+build = "sphinx-build -b html docs/source docs/build"
+
+[tool.black]
+line-length = 88
+target-version = ["py39"]
+include = '\.pyi?$'
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
