@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Dict, Optional, Union
 
-from snowforge.utilities import sql_format_dict, sql_quote_string
+from snowforge.utilities import sql_format_dict, sql_quote_comment, sql_quote_string
 
 from .file_format import FileFormatSpecification
 
@@ -356,7 +356,7 @@ class Stage:
             parts.append(f"FILE_FORMAT = ({self.file_format.to_sql()})")
 
         if self.comment:
-            parts.append(f"COMMENT = {sql_quote_string(self.comment)}")
+            parts.append(f"COMMENT = {sql_quote_comment(self.comment)}")
 
         if self.tags:
             parts.append(f"TAGS = {sql_format_dict(self.tags)}")
