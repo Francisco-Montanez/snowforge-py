@@ -5,6 +5,7 @@ from enum import Enum
 from typing import Dict, List, Literal, Optional
 
 from snowforge.file_format import FileFormatSpecification
+from snowforge.utilities import sql_format_dict, sql_format_list, sql_quote_string
 
 
 class OnError(Enum):
@@ -36,6 +37,10 @@ class MatchByColumnName(Enum):
     CASE_SENSITIVE = "CASE_SENSITIVE"
     NONE = "NONE"
 
+    def __str__(self) -> str:
+        """Returns the string representation of the MatchByColumnName enum."""
+        return self.value
+
 
 class ValidationMode(Enum):
     """Specifies the validation mode for a COPY INTO operation."""
@@ -51,6 +56,17 @@ class ValidationMode(Enum):
     def return_n_rows(cls, n: int) -> str:
         """Creates a RETURN_{n}_ROWS option with the specified number of rows."""
         return f"RETURN_{n}_ROWS"
+
+
+class LoadMode(Enum):
+    """Specifies the load mode for a COPY INTO operation."""
+
+    FULL_INGEST = "FULL_INGEST"
+    ADD_FILES_COPY = "ADD_FILES_COPY"
+
+    def __str__(self) -> str:
+        """Returns the string representation of the LoadMode enum."""
+        return self.value
 
 
 class CopyIntoTarget:
@@ -127,6 +143,7 @@ class CopyIntoOptions:
         file_processor (Optional[str]): File processor to use
         force (bool): Whether to force the operation
         include_metadata (Optional[Dict[str, str]]): Metadata to include
+        load_mode (Optional[LoadMode]): Load mode to use
         load_uncertain_files (bool): Whether to load uncertain files
         match_by_column_name (Optional[MatchByColumnName]): Column matching strategy
         on_error (Optional[OnError]): Error handling behavior
@@ -140,6 +157,7 @@ class CopyIntoOptions:
     file_processor: Optional[str] = None
     force: bool = False
     include_metadata: Optional[Dict[str, str]] = None
+    load_mode: Optional[LoadMode] = None
     load_uncertain_files: bool = False
     match_by_column_name: Optional[MatchByColumnName] = None
     on_error: Optional[OnError] = None
@@ -160,13 +178,13 @@ class CopyIntoOptions:
         if self.return_failed_only:
             parts.append("RETURN_FAILED_ONLY = TRUE")
         if self.on_error:
-            parts.append(f"ON_ERROR = {self.on_error.value}")
+            parts.append(f"ON_ERROR = {str(self.on_error)}")
         if self.size_limit:
             parts.append(f"SIZE_LIMIT = {self.size_limit}")
         if self.purge:
             parts.append("PURGE = TRUE")
         if self.match_by_column_name:
-            parts.append(f"MATCH_BY_COLUMN_NAME = {self.match_by_column_name.value}")
+            parts.append(f"MATCH_BY_COLUMN_NAME = {str(self.match_by_column_name)}")
         if self.enforce_length:
             parts.append("ENFORCE_LENGTH = TRUE")
         if self.truncate_columns:
@@ -176,9 +194,11 @@ class CopyIntoOptions:
         if self.load_uncertain_files:
             parts.append("LOAD_UNCERTAIN_FILES = TRUE")
         if self.file_processor:
-            parts.append(f"FILE_PROCESSOR = ({self.file_processor})")
+            parts.append(f"FILE_PROCESSOR = (SCANNER = {self.file_processor})")
         if self.include_metadata:
-            parts.append(f"INCLUDE_METADATA = ({self.include_metadata})")
+            parts.append(f"INCLUDE_METADATA = {sql_format_dict(self.include_metadata)}")
+        if self.load_mode:
+            parts.append(f"LOAD_MODE = {str(self.load_mode)}")
 
         return " ".join(parts)
 
@@ -201,6 +221,7 @@ class CopyIntoOptionsBuilder:
         self.file_processor: Optional[str] = None
         self.force: bool = False
         self.include_metadata: Optional[Dict[str, str]] = None
+        self.load_mode: Optional[LoadMode] = None
         self.load_uncertain_files: bool = False
         self.match_by_column_name: Optional[MatchByColumnName] = None
         self.on_error: Optional[OnError] = None
@@ -216,6 +237,7 @@ class CopyIntoOptionsBuilder:
             file_processor=self.file_processor,
             force=self.force,
             include_metadata=self.include_metadata,
+            load_mode=self.load_mode,
             load_uncertain_files=self.load_uncertain_files,
             match_by_column_name=self.match_by_column_name,
             on_error=self.on_error,
@@ -245,6 +267,11 @@ class CopyIntoOptionsBuilder:
     ) -> 'CopyIntoOptionsBuilder':
         """Sets the include metadata."""
         self.include_metadata = include_metadata
+        return self
+
+    def with_load_mode(self, load_mode: LoadMode) -> 'CopyIntoOptionsBuilder':
+        """Sets the load mode."""
+        self.load_mode = load_mode
         return self
 
     def with_load_uncertain_files(
@@ -330,14 +357,13 @@ class CopyInto:
         parts = ["COPY INTO", self.target.to_sql(), "FROM", self.source.to_sql()]
 
         if self.pattern:
-            parts.append(f"PATTERN = '{self.pattern}'")
+            parts.append(f"PATTERN = {sql_quote_string(self.pattern)}")
         if self.file_format:
             parts.append(f"FILE_FORMAT = ({self.file_format.to_sql()})")
         if self.files:
-            files_str = ", ".join(f"'{f}'" for f in self.files)
-            parts.append(f"FILES = ({files_str})")
+            parts.append(f"FILES = {sql_format_list(self.files)}")
         if self.validation_mode:
-            parts.append(f"VALIDATION_MODE = {self.validation_mode.value}")
+            parts.append(f"VALIDATION_MODE = {str(self.validation_mode)}")
 
         options_sql = self.options.to_sql()
         if options_sql:
