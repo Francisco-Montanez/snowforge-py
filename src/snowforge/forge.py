@@ -12,6 +12,8 @@ from dotenv import load_dotenv
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.errors import Error as SnowflakeError
 
+from snowforge.utilities import sql_quote_comment
+
 from .copy_into import CopyInto
 from .file_format import FileFormat
 from .put import Put
@@ -534,7 +536,7 @@ class WorkflowBuilder:
             sql_parts.append(f"ALLOWED_VALUES {values_str}")
 
         if comment:
-            sql_parts.append(f"COMMENT = '{comment}'")
+            sql_parts.append(f"COMMENT = {sql_quote_comment(comment)}")
 
         sql = " ".join(sql_parts)
         self._add_transaction_step(WorkflowStep("custom_sql", sql))
