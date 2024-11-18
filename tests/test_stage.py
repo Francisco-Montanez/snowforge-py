@@ -2,14 +2,10 @@ import pytest
 
 from snowforge.file_format import FileFormatSpecification
 from snowforge.stage import (
-    AzureDirectoryTableParams,
     AzureExternalStageParams,
-    GCSDirectoryTableParams,
-    GCSExternalStageParams,
     InternalDirectoryTableParams,
     InternalStageEncryptionType,
     InternalStageParams,
-    S3CompatibleExternalStageParams,
     S3DirectoryTableParams,
     S3ExternalStageParams,
     Stage,
@@ -17,7 +13,6 @@ from snowforge.stage import (
 )
 
 
-# Fixtures
 @pytest.fixture
 def basic_stage():
     return Stage.builder("TEST_STAGE").build()
@@ -33,7 +28,6 @@ def file_format():
     return FileFormatSpecification.named("TEST_FORMAT")
 
 
-# Basic Stage Tests
 def test_basic_stage_creation(basic_stage):
     """Test creation of a basic stage with minimal parameters."""
     assert basic_stage.name == "TEST_STAGE"
@@ -52,7 +46,6 @@ def test_stage_with_if_not_exists():
     assert stage.to_sql() == "CREATE STAGE IF NOT EXISTS TEST_STAGE"
 
 
-# Internal Stage Tests
 def test_internal_stage_full_config(internal_stage_params, file_format):
     """Test creation of an internal stage with full configuration."""
     stage = (
@@ -75,7 +68,6 @@ def test_internal_stage_full_config(internal_stage_params, file_format):
     assert stage.to_sql() == expected
 
 
-# External Stage Tests
 def test_azure_external_stage():
     """Test creation of an Azure external stage."""
     params = AzureExternalStageParams(
@@ -108,14 +100,12 @@ def test_s3_external_stage():
     assert stage.to_sql() == expected
 
 
-# Error Cases
 def test_stage_builder_without_name():
     """Test that building a stage without a name raises an error."""
     with pytest.raises(ValueError, match="Stage name must be set"):
         Stage.builder("").build()
 
 
-# Storage Integration Enum Tests
 def test_storage_integration_str():
     """Test string representation of storage integration types."""
     assert str(StorageIntegration.AZURE) == "AZURE"
@@ -124,7 +114,6 @@ def test_storage_integration_str():
     assert str(StorageIntegration.S3_COMPATIBLE) == "S3_COMPATIBLE"
 
 
-# Directory Table Tests
 def test_s3_directory_table_params():
     """Test S3 directory table parameters."""
     params = S3DirectoryTableParams(
