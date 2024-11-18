@@ -9,6 +9,7 @@ from snowforge.utilities import (
     sql_escape_string,
     sql_format_boolean,
     sql_format_list,
+    sql_quote_comment,
     sql_quote_string,
 )
 
@@ -159,7 +160,7 @@ class FileFormat:
             parts.append(self.options.to_sql())
 
         if self.comment:
-            parts.append(f"COMMENT = {sql_quote_string(self.comment)}")
+            parts.append(f"COMMENT = {sql_quote_comment(self.comment)}")
 
         return " ".join(parts)
 
