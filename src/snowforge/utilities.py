@@ -82,3 +82,32 @@ def sql_format_dict(values: Dict[str, str]) -> str:
     for key, value in values.items():
         parts.append(f"{sql_quote_string(key)} = {sql_format_value(value)}")
     return f"({', '.join(parts)})"
+
+
+def sql_escape_comment(value: str) -> str:
+    """Escapes special characters in SQL comment strings.
+
+    Handles the specific case of escaping quotes within comments for Snowflake SQL.
+    Single quotes are escaped with backslash, double quotes remain unescaped.
+
+    Args:
+        value: The comment string to escape
+
+    Returns:
+        Escaped string safe for SQL comments
+    """
+    return value.replace("'", "\\'")
+
+
+def sql_quote_comment(value: str) -> str:
+    """Quotes and escapes a comment string for SQL.
+
+    Specifically handles Snowflake SQL comment formatting.
+
+    Args:
+        value: The comment string to quote and escape
+
+    Returns:
+        Quoted and escaped comment string safe for SQL
+    """
+    return f"'{sql_escape_comment(value)}'"
