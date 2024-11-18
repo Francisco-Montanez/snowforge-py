@@ -1,0 +1,36 @@
+name: Publish to PyPI
+
+on:
+  push:
+    tags:
+      - 'v*'  # Trigger on version tags
+  workflow_dispatch:  # Allow manual triggering for testing
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  test-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build hatch
+
+      - name: Build package
+        run: hatch build
+
+      - name: Test package structure
+        run: |
+          python -m pip install dist/*.whl
+          python -c "import snowforge; print(snowforge.__version__)"
