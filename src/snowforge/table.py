@@ -4,6 +4,14 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Dict, List, Optional, Union
 
+from snowforge.utilities import (
+    sql_format_boolean,
+    sql_format_dict,
+    sql_format_list,
+    sql_quote_comment,
+    sql_quote_string,
+)
+
 
 class TableType(str, Enum):
     """Represents different types of tables."""
@@ -13,19 +21,23 @@ class TableType(str, Enum):
     TRANSIENT = "TRANSIENT"
     VOLATILE = "VOLATILE"
 
+    def __str__(self) -> str:
+        """Returns the string representation of the table type."""
+        return self.value
+
 
 class ColumnType(str, Enum):
     """Represents different column data types."""
 
-    NUMBER = "NUMBER"
-    STRING = "STRING"
+    ARRAY = "ARRAY"
     BOOLEAN = "BOOLEAN"
     DATE = "DATE"
+    NUMBER = "NUMBER"
+    OBJECT = "OBJECT"
+    STRING = "STRING"
+    TEXT = "TEXT"
     TIMESTAMP = "TIMESTAMP"
     VARIANT = "VARIANT"
-    ARRAY = "ARRAY"
-    OBJECT = "OBJECT"
-    TEXT = "TEXT"
 
     def __call__(self, *args: Union[int, str]) -> str:
         """
@@ -45,6 +57,7 @@ class ColumnType(str, Enum):
         return f"{self.value}({params})"
 
     def __str__(self) -> str:
+        """Returns the string representation of the column type."""
         return self.value
 
 
@@ -87,9 +100,9 @@ class Column:
         if self.foreign_key:
             parts.append(f"REFERENCES {self.foreign_key}")
         if self.comment:
-            parts.append(f"COMMENT '{self.comment.replace(chr(39), chr(39)*2)}'")
+            parts.append(f"COMMENT {sql_quote_comment(self.comment)}")
         if self.collate:
-            parts.append(f"COLLATE '{self.collate}'")
+            parts.append(f"COLLATE {sql_quote_string(self.collate)}")
 
         return " ".join(parts)
 
@@ -117,25 +130,44 @@ class Table:
 
     A Table encapsulates all the properties and configurations needed to define
     a table structure, including columns, constraints, and various options.
+
+    Attributes:
+        name: The name of the table.
+        columns: The columns in the table.
+        aggregation_policy: The aggregation policy for the table.
+        change_tracking: Whether change tracking is enabled for the table.
+        cluster_by: The clustering columns for the table.
+        comment: The comment for the table.
+        copy_grants: Whether to copy grants for the table.
+        data_retention_time_in_days: The data retention time in days for the table.
+        default_ddl_collation: The default DDL collation for the table.
+        is_create_if_not_exists: Whether to create the table only if it doesn't exist.
+        is_create_or_replace: Whether to create or replace the table.
+        max_data_extension_time_in_days: The maximum data extension time in days for the table.
+        row_access_policy: The row access policy for the table.
+        stage_copy_options: The stage copy options for the table.
+        stage_file_format: The stage file format for the table.
+        table_type: The type of the table.
+        tags: The tags for the table.
     """
 
     name: str
     columns: List[Column]
-    table_type: TableType = TableType.PERMANENT
-    cluster_by: Optional[List[str]] = None
-    stage_file_format: Optional[str] = None
-    stage_copy_options: Optional[str] = None
-    data_retention_time_in_days: Optional[int] = None
-    max_data_extension_time_in_days: Optional[int] = None
-    change_tracking: Optional[bool] = None
-    default_ddl_collation: Optional[str] = None
-    copy_grants: bool = False
-    comment: Optional[str] = None
-    row_access_policy: Optional[RowAccessPolicy] = None
     aggregation_policy: Optional[AggregationPolicy] = None
-    tags: Dict[str, str] = field(default_factory=dict)
-    is_create_or_replace: bool = False
+    change_tracking: Optional[bool] = None
+    cluster_by: Optional[List[str]] = None
+    comment: Optional[str] = None
+    copy_grants: bool = False
+    data_retention_time_in_days: Optional[int] = None
+    default_ddl_collation: Optional[str] = None
     is_create_if_not_exists: bool = False
+    is_create_or_replace: bool = False
+    max_data_extension_time_in_days: Optional[int] = None
+    row_access_policy: Optional[RowAccessPolicy] = None
+    stage_copy_options: Optional[str] = None
+    stage_file_format: Optional[str] = None
+    table_type: TableType = TableType.PERMANENT
+    tags: Dict[str, str] = field(default_factory=dict)
 
     @classmethod
     def builder(cls, name: str) -> TableBuilder:
@@ -152,7 +184,7 @@ class Table:
             parts.append("CREATE")
 
         if self.table_type != TableType.PERMANENT:
-            parts.append(self.table_type.value)
+            parts.append(str(self.table_type))
 
         parts.append("TABLE")
 
@@ -166,7 +198,7 @@ class Table:
         parts.append(f"({', '.join(column_definitions)})")
 
         if self.comment:
-            parts.append(f"COMMENT = '{self.comment.replace(chr(39), chr(39)*2)}'")
+            parts.append(f"COMMENT = {sql_quote_comment(self.comment)}")
 
         if self.data_retention_time_in_days is not None:
             parts.append(
@@ -179,32 +211,35 @@ class Table:
             )
 
         if self.change_tracking is not None:
-            parts.append(f"CHANGE_TRACKING = {str(self.change_tracking).upper()}")
+            parts.append(
+                f"CHANGE_TRACKING = {sql_format_boolean(self.change_tracking)}"
+            )
 
         if self.default_ddl_collation:
-            parts.append(f"DEFAULT_DDL_COLLATION = '{self.default_ddl_collation}'")
+            parts.append(
+                f"DEFAULT_DDL_COLLATION = {sql_quote_string(self.default_ddl_collation)}"
+            )
 
         if self.copy_grants:
             parts.append("COPY GRANTS")
 
         if self.cluster_by:
-            parts.append(f"CLUSTER BY ({', '.join(self.cluster_by)})")
+            parts.append(f"CLUSTER BY {sql_format_list(self.cluster_by)}")
 
         if self.row_access_policy:
             policy = self.row_access_policy
             parts.append(
-                f"WITH ROW ACCESS POLICY {policy.name} ON ({', '.join(policy.on)})"
+                f"WITH ROW ACCESS POLICY {policy.name} ON {sql_format_list(policy.on)}"
             )
 
         if self.aggregation_policy:
             policy = self.aggregation_policy
             parts.append(
-                f"WITH AGGREGATION POLICY {policy.name} ON ({', '.join(policy.on)})"
+                f"WITH AGGREGATION POLICY {policy.name} ON {sql_format_list(policy.on)}"
             )
 
         if self.tags:
-            tag_parts = [f"TAG ({key} = '{value}')" for key, value in self.tags.items()]
-            parts.append("WITH " + " ".join(tag_parts))
+            parts.append(f"WITH TAG {sql_format_dict(self.tags)}")
 
         return " ".join(parts)
 
@@ -213,57 +248,54 @@ class Table:
 class TableBuilder:
     """Builder for Table instances."""
 
-    name: Optional[str] = None
-    columns: List[Column] = field(default_factory=list)
-    table_type: TableType = TableType.PERMANENT
-    cluster_by: Optional[List[str]] = None
-    stage_file_format: Optional[str] = None
-    stage_copy_options: Optional[str] = None
-    data_retention_time_in_days: Optional[int] = None
-    max_data_extension_time_in_days: Optional[int] = None
-    change_tracking: Optional[bool] = None
-    default_ddl_collation: Optional[str] = None
-    copy_grants: bool = False
-    comment: Optional[str] = None
-    row_access_policy: Optional[RowAccessPolicy] = None
     aggregation_policy: Optional[AggregationPolicy] = None
-    tags: Dict[str, str] = field(default_factory=dict)
-    is_create_or_replace: bool = False
+    change_tracking: Optional[bool] = None
+    cluster_by: Optional[List[str]] = None
+    columns: List[Column] = field(default_factory=list)
+    comment: Optional[str] = None
+    copy_grants: bool = False
+    data_retention_time_in_days: Optional[int] = None
+    default_ddl_collation: Optional[str] = None
     is_create_if_not_exists: bool = False
+    is_create_or_replace: bool = False
+    max_data_extension_time_in_days: Optional[int] = None
+    name: Optional[str] = None
+    row_access_policy: Optional[RowAccessPolicy] = None
+    stage_copy_options: Optional[str] = None
+    stage_file_format: Optional[str] = None
+    table_type: TableType = TableType.PERMANENT
+    tags: Dict[str, str] = field(default_factory=dict)
 
-    def with_column(self, column: Column) -> TableBuilder:
-        """Adds a column to the table."""
-        self.columns.append(column)
-        return self
+    def build(self) -> Table:
+        """Builds and returns a new Table instance."""
+        if not self.name or self.name.strip() == "":
+            raise ValueError("Table name must be set")
+        if not self.columns or len(self.columns) == 0:
+            raise ValueError("Table must have at least one column")
 
-    def with_table_type(self, table_type: TableType) -> TableBuilder:
-        """Sets the table type."""
-        self.table_type = table_type
-        return self
+        return Table(
+            aggregation_policy=self.aggregation_policy,
+            change_tracking=self.change_tracking,
+            cluster_by=self.cluster_by,
+            columns=self.columns,
+            comment=self.comment,
+            copy_grants=self.copy_grants,
+            data_retention_time_in_days=self.data_retention_time_in_days,
+            default_ddl_collation=self.default_ddl_collation,
+            is_create_if_not_exists=self.is_create_if_not_exists,
+            is_create_or_replace=self.is_create_or_replace,
+            max_data_extension_time_in_days=self.max_data_extension_time_in_days,
+            name=self.name,
+            row_access_policy=self.row_access_policy,
+            stage_copy_options=self.stage_copy_options,
+            stage_file_format=self.stage_file_format,
+            table_type=self.table_type,
+            tags=self.tags,
+        )
 
-    def with_cluster_by(self, columns: List[str]) -> TableBuilder:
-        """Sets the clustering columns."""
-        self.cluster_by = columns
-        return self
-
-    def with_stage_file_format(self, format: str) -> TableBuilder:
-        """Sets the stage file format."""
-        self.stage_file_format = format
-        return self
-
-    def with_stage_copy_options(self, options: str) -> TableBuilder:
-        """Sets the stage copy options."""
-        self.stage_copy_options = options
-        return self
-
-    def with_data_retention_time_in_days(self, days: int) -> TableBuilder:
-        """Sets the data retention time in days."""
-        self.data_retention_time_in_days = days
-        return self
-
-    def with_max_data_extension_time_in_days(self, days: int) -> TableBuilder:
-        """Sets the maximum data extension time in days."""
-        self.max_data_extension_time_in_days = days
+    def with_aggregation_policy(self, policy: AggregationPolicy) -> TableBuilder:
+        """Sets the aggregation policy."""
+        self.aggregation_policy = policy
         return self
 
     def with_change_tracking(self, enabled: bool) -> TableBuilder:
@@ -271,14 +303,14 @@ class TableBuilder:
         self.change_tracking = enabled
         return self
 
-    def with_default_ddl_collation(self, collation: str) -> TableBuilder:
-        """Sets the default DDL collation."""
-        self.default_ddl_collation = collation
+    def with_cluster_by(self, columns: List[str]) -> TableBuilder:
+        """Sets the clustering columns."""
+        self.cluster_by = columns
         return self
 
-    def with_copy_grants(self, copy_grants: bool) -> TableBuilder:
-        """Sets whether to copy grants."""
-        self.copy_grants = copy_grants
+    def with_column(self, column: Column) -> TableBuilder:
+        """Adds a column to the table."""
+        self.columns.append(column)
         return self
 
     def with_comment(self, comment: str) -> TableBuilder:
@@ -286,19 +318,9 @@ class TableBuilder:
         self.comment = comment
         return self
 
-    def with_row_access_policy(self, policy: RowAccessPolicy) -> TableBuilder:
-        """Sets the row access policy."""
-        self.row_access_policy = policy
-        return self
-
-    def with_aggregation_policy(self, policy: AggregationPolicy) -> TableBuilder:
-        """Sets the aggregation policy."""
-        self.aggregation_policy = policy
-        return self
-
-    def with_tag(self, key: str, value: str) -> TableBuilder:
-        """Adds a tag to the table."""
-        self.tags[key] = value
+    def with_copy_grants(self, copy_grants: bool) -> TableBuilder:
+        """Sets whether to copy grants."""
+        self.copy_grants = copy_grants
         return self
 
     def with_create_or_replace(self) -> TableBuilder:
@@ -311,29 +333,42 @@ class TableBuilder:
         self.is_create_if_not_exists = True
         return self
 
-    def build(self) -> Table:
-        """Builds and returns a new Table instance."""
-        if not self.name:
-            raise ValueError("Table name must be set")
-        if not self.columns:
-            raise ValueError("Table must have at least one column")
+    def with_data_retention_time_in_days(self, days: int) -> TableBuilder:
+        """Sets the data retention time in days."""
+        self.data_retention_time_in_days = days
+        return self
 
-        return Table(
-            name=self.name,
-            columns=self.columns,
-            table_type=self.table_type,
-            cluster_by=self.cluster_by,
-            stage_file_format=self.stage_file_format,
-            stage_copy_options=self.stage_copy_options,
-            data_retention_time_in_days=self.data_retention_time_in_days,
-            max_data_extension_time_in_days=self.max_data_extension_time_in_days,
-            change_tracking=self.change_tracking,
-            default_ddl_collation=self.default_ddl_collation,
-            copy_grants=self.copy_grants,
-            comment=self.comment,
-            row_access_policy=self.row_access_policy,
-            aggregation_policy=self.aggregation_policy,
-            tags=self.tags,
-            is_create_or_replace=self.is_create_or_replace,
-            is_create_if_not_exists=self.is_create_if_not_exists,
-        )
+    def with_default_ddl_collation(self, collation: str) -> TableBuilder:
+        """Sets the default DDL collation."""
+        self.default_ddl_collation = collation
+        return self
+
+    def with_max_data_extension_time_in_days(self, days: int) -> TableBuilder:
+        """Sets the maximum data extension time in days."""
+        self.max_data_extension_time_in_days = days
+        return self
+
+    def with_row_access_policy(self, policy: RowAccessPolicy) -> TableBuilder:
+        """Sets the row access policy."""
+        self.row_access_policy = policy
+        return self
+
+    def with_stage_copy_options(self, options: str) -> TableBuilder:
+        """Sets the stage copy options."""
+        self.stage_copy_options = options
+        return self
+
+    def with_stage_file_format(self, format: str) -> TableBuilder:
+        """Sets the stage file format."""
+        self.stage_file_format = format
+        return self
+
+    def with_table_type(self, table_type: TableType) -> TableBuilder:
+        """Sets the table type."""
+        self.table_type = table_type
+        return self
+
+    def with_tag(self, key: str, value: str) -> TableBuilder:
+        """Adds a tag to the table."""
+        self.tags[key] = value
+        return self
