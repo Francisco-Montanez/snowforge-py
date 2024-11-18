@@ -4,16 +4,22 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Dict, Optional, Union
 
+from snowforge.utilities import sql_format_dict, sql_quote_string
+
 from .file_format import FileFormatSpecification
 
 
 class StorageIntegration(str, Enum):
     """Represents storage integration types for external stages."""
 
-    S3 = "S3"
-    GCS = "GCS"
     AZURE = "AZURE"
+    GCS = "GCS"
+    S3 = "S3"
     S3_COMPATIBLE = "S3_COMPATIBLE"
+
+    def __str__(self) -> str:
+        """Returns the SQL representation of the storage integration."""
+        return self.value
 
 
 class InternalStageEncryptionType(str, Enum):
@@ -22,109 +28,151 @@ class InternalStageEncryptionType(str, Enum):
     FULL = "SNOWFLAKE_FULL"
     SSE = "SNOWFLAKE_SSE"
 
+    def __str__(self) -> str:
+        """Returns the SQL representation of the encryption type."""
+        return self.value
+
 
 @dataclass
 class InternalStageParams:
-    """Parameters for internal stages."""
+    """Parameters for internal stages.
+
+    Attributes:
+        encryption: The encryption settings for the stage
+    """
 
     encryption: Optional[InternalStageEncryptionType] = None
 
     def to_sql(self) -> str:
+        """Generates the SQL statement for the internal stage parameters."""
         parts = []
         if self.encryption:
-            parts.append(f"ENCRYPTION = (TYPE = '{self.encryption.value}')")
-        return " ".join(parts)
-
-
-@dataclass
-class S3ExternalStageParams:
-    """Parameters for Amazon S3 external stages."""
-
-    url: str
-    storage_integration: Optional[str] = None
-    credentials: Optional[Dict[str, str]] = None
-    encryption: Optional[Dict[str, str]] = None
-
-    def to_sql(self) -> str:
-        parts = [f"URL = '{self.url}'"]
-        if self.storage_integration:
-            parts.append(f"STORAGE_INTEGRATION = {self.storage_integration}")
-        if self.credentials:
-            cred_parts = [f"{k} = '{v}'" for k, v in self.credentials.items()]
-            parts.append(f"CREDENTIALS = ({' '.join(cred_parts)})")
-        if self.encryption:
-            enc_parts = [f"{k} = '{v}'" for k, v in self.encryption.items()]
-            parts.append(f"ENCRYPTION = ({' '.join(enc_parts)})")
-        return " ".join(parts)
-
-
-@dataclass
-class GCSExternalStageParams:
-    """Parameters for Google Cloud Storage external stages."""
-
-    url: str
-    storage_integration: str
-    encryption: Optional[Dict[str, str]] = None
-
-    def to_sql(self) -> str:
-        parts = [
-            f"URL = '{self.url}'",
-            f"STORAGE_INTEGRATION = {self.storage_integration}",
-        ]
-        if self.encryption:
-            enc_parts = [f"{k} = '{v}'" for k, v in self.encryption.items()]
-            parts.append(f"ENCRYPTION = ({' '.join(enc_parts)})")
+            parts.append(
+                f"ENCRYPTION = (TYPE = {sql_quote_string(str(self.encryption))})"
+            )
         return " ".join(parts)
 
 
 @dataclass
 class AzureExternalStageParams:
-    """Parameters for Microsoft Azure external stages."""
+    """Parameters for Microsoft Azure external stages.
 
-    url: str
+    Attributes:
+        storage_integration: The name of the storage integration to use
+        url: The URL for the Azure storage service
+        encryption: The encryption settings for the stage
+    """
+
     storage_integration: str
+    url: str
     encryption: Optional[Dict[str, str]] = None
 
     def to_sql(self) -> str:
+        """Generates the SQL statement for the Azure external stage."""
         parts = [
-            f"URL = '{self.url}'",
+            f"URL = {sql_quote_string(self.url)}",
             f"STORAGE_INTEGRATION = {self.storage_integration}",
         ]
         if self.encryption:
-            enc_parts = [f"{k} = '{v}'" for k, v in self.encryption.items()]
-            parts.append(f"ENCRYPTION = ({' '.join(enc_parts)})")
+            parts.append(f"ENCRYPTION = {sql_format_dict(self.encryption)}")
+        return " ".join(parts)
+
+
+@dataclass
+class GCSExternalStageParams:
+    """Parameters for Google Cloud Storage external stages.
+
+    Attributes:
+        storage_integration: The name of the storage integration to use
+        url: The URL for the GCS storage service
+        encryption: The encryption settings for the stage
+    """
+
+    storage_integration: str
+    url: str
+    encryption: Optional[Dict[str, str]] = None
+
+    def to_sql(self) -> str:
+        """Generates the SQL statement for the GCS external stage."""
+        parts = [
+            f"URL = {sql_quote_string(self.url)}",
+            f"STORAGE_INTEGRATION = {self.storage_integration}",
+        ]
+        if self.encryption:
+            parts.append(f"ENCRYPTION = {sql_format_dict(self.encryption)}")
+        return " ".join(parts)
+
+
+@dataclass
+class S3ExternalStageParams:
+    """Parameters for Amazon S3 external stages.
+
+    Attributes:
+        url: The URL for the S3 storage service
+        credentials: The credentials for the S3 storage service
+        encryption: The encryption settings for the stage
+        storage_integration: The name of the storage integration to use
+    """
+
+    url: str
+    credentials: Optional[Dict[str, str]] = None
+    encryption: Optional[Dict[str, str]] = None
+    storage_integration: Optional[str] = None
+
+    def to_sql(self) -> str:
+        """Generates the SQL statement for the S3 external stage."""
+        parts = [f"URL = {sql_quote_string(self.url)}"]
+        if self.storage_integration:
+            parts.append(f"STORAGE_INTEGRATION = {self.storage_integration}")
+        if self.credentials:
+            parts.append(f"CREDENTIALS = {sql_format_dict(self.credentials)}")
+        if self.encryption:
+            parts.append(f"ENCRYPTION = {sql_format_dict(self.encryption)}")
         return " ".join(parts)
 
 
 @dataclass
 class S3CompatibleExternalStageParams:
-    """Parameters for S3-compatible external stages."""
+    """Parameters for S3-compatible external stages.
 
-    url: str
-    storage_integration: str
+    Attributes:
+        endpoint: The endpoint URL for the S3-compatible storage service
+        storage_integration: The name of the storage integration to use
+        url: The URL for the S3-compatible storage service
+        encryption: The encryption settings for the stage
+    """
+
     endpoint: str
+    storage_integration: str
+    url: str
     encryption: Optional[Dict[str, str]] = None
 
     def to_sql(self) -> str:
+        """Generates the SQL statement for the S3-compatible external stage."""
         parts = [
-            f"URL = '{self.url}'",
+            f"URL = {sql_quote_string(self.url)}",
             f"STORAGE_INTEGRATION = {self.storage_integration}",
-            f"ENDPOINT = '{self.endpoint}'",
+            f"ENDPOINT = {sql_quote_string(self.endpoint)}",
         ]
         if self.encryption:
-            enc_parts = [f"{k} = '{v}'" for k, v in self.encryption.items()]
-            parts.append(f"ENCRYPTION = ({' '.join(enc_parts)})")
+            parts.append(f"ENCRYPTION = {sql_format_dict(self.encryption)}")
         return " ".join(parts)
 
 
 @dataclass
 class DirectoryTableParams:
-    """Base class for directory table parameters."""
+    """Base class for directory table parameters.
+
+    Attributes:
+        enable: Whether directory tables are enabled (default: True)
+        refresh_on_create: Whether to refresh directory tables on creation (default: True)
+    """
 
     enable: bool = True
     refresh_on_create: bool = True
 
     def to_sql(self) -> str:
+        """Generates the SQL statement for the directory table parameters."""
         parts = []
         if self.enable:
             parts.append("ENABLE = TRUE")
@@ -144,6 +192,7 @@ class InternalDirectoryTableParams(DirectoryTableParams):
     """
 
     def to_sql(self) -> str:
+        """Generates the SQL statement for the directory table parameters."""
         parts = []
         if self.enable:
             parts.append("ENABLE = TRUE")
@@ -153,21 +202,22 @@ class InternalDirectoryTableParams(DirectoryTableParams):
 
 
 @dataclass
-class S3DirectoryTableParams(DirectoryTableParams):
-    aws_sns_topic: Optional[str] = None
-    aws_role: Optional[str] = None
+class AzureDirectoryTableParams(DirectoryTableParams):
+    """Directory table parameters for Microsoft Azure external stages.
+
+    Attributes:
+        notification_integration: The name of the notification integration to use
+    """
+
     notification_integration: Optional[str] = None
 
     def to_sql(self) -> str:
+        """Generates the SQL statement for the Azure directory table parameters."""
         parts = []
         if self.enable:
             parts.append("ENABLE = TRUE")
         if self.refresh_on_create:
             parts.append("REFRESH_ON_CREATE = TRUE")
-        if self.aws_sns_topic:
-            parts.append(f"AWS_SNS_TOPIC = '{self.aws_sns_topic}'")
-        if self.aws_role:
-            parts.append(f"AWS_ROLE = '{self.aws_role}'")
         if self.notification_integration:
             parts.append(f"NOTIFICATION_INTEGRATION = {self.notification_integration}")
         return f"DIRECTORY = ({' '.join(parts)})"
@@ -175,9 +225,16 @@ class S3DirectoryTableParams(DirectoryTableParams):
 
 @dataclass
 class GCSDirectoryTableParams(DirectoryTableParams):
+    """Directory table parameters for Google Cloud Storage external stages.
+
+    Attributes:
+        notification_integration: The name of the notification integration to use
+    """
+
     notification_integration: Optional[str] = None
 
     def to_sql(self) -> str:
+        """Generates the SQL statement for the GCS directory table parameters."""
         parts = []
         if self.enable:
             parts.append("ENABLE = TRUE")
@@ -189,15 +246,30 @@ class GCSDirectoryTableParams(DirectoryTableParams):
 
 
 @dataclass
-class AzureDirectoryTableParams(DirectoryTableParams):
+class S3DirectoryTableParams(DirectoryTableParams):
+    """Directory table parameters for Amazon S3 external stages.
+
+    Attributes:
+        aws_role: The AWS role to use for the directory table
+        aws_sns_topic: The AWS SNS topic to use for the directory table
+        notification_integration: The name of the notification integration to use
+    """
+
+    aws_role: Optional[str] = None
+    aws_sns_topic: Optional[str] = None
     notification_integration: Optional[str] = None
 
     def to_sql(self) -> str:
+        """Generates the SQL statement for the S3 directory table parameters."""
         parts = []
         if self.enable:
             parts.append("ENABLE = TRUE")
         if self.refresh_on_create:
             parts.append("REFRESH_ON_CREATE = TRUE")
+        if self.aws_sns_topic:
+            parts.append(f"AWS_SNS_TOPIC = {sql_quote_string(self.aws_sns_topic)}")
+        if self.aws_role:
+            parts.append(f"AWS_ROLE = {sql_quote_string(self.aws_role)}")
         if self.notification_integration:
             parts.append(f"NOTIFICATION_INTEGRATION = {self.notification_integration}")
         return f"DIRECTORY = ({' '.join(parts)})"
@@ -239,15 +311,16 @@ class Stage:
         is_create_if_not_exists: bool = False,
         is_temporary: bool = False,
     ):
-        self.name = name
-        self.stage_params = stage_params
+        """Initializes a new Stage instance."""
+        self.comment = comment
         self.directory_table_params = directory_table_params
         self.file_format = file_format
-        self.comment = comment
-        self.tags = tags or {}
-        self.is_create_or_replace = is_create_or_replace
         self.is_create_if_not_exists = is_create_if_not_exists
+        self.is_create_or_replace = is_create_or_replace
         self.is_temporary = is_temporary
+        self.name = name
+        self.stage_params = stage_params
+        self.tags = tags or {}
 
     @classmethod
     def builder(cls, name: str) -> StageBuilder:
@@ -283,11 +356,10 @@ class Stage:
             parts.append(f"FILE_FORMAT = ({self.file_format.to_sql()})")
 
         if self.comment:
-            parts.append(f"COMMENT = '{self.comment.replace(chr(39), chr(39)*2)}'")
+            parts.append(f"COMMENT = {sql_quote_string(self.comment)}")
 
         if self.tags:
-            tag_parts = [f"{k} = '{v}'" for k, v in self.tags.items()]
-            parts.append(f"TAGS = ({' '.join(tag_parts)})")
+            parts.append(f"TAGS = {sql_format_dict(self.tags)}")
 
         return " ".join(parts)
 
@@ -296,28 +368,47 @@ class StageBuilder:
     """Builder for Stage instances."""
 
     def __init__(self, name: str):
-        self.name = name
-        self.stage_params = None
+        """Initializes a new StageBuilder instance."""
+        self.comment = None
         self.directory_table_params = None
         self.file_format = None
-        self.comment = None
-        self.tags = {}
-        self.is_create_or_replace = False
         self.is_create_if_not_exists = False
+        self.is_create_or_replace = False
         self.is_temporary = False
+        self.name = name
+        self.stage_params = None
+        self.tags = {}
 
-    def with_stage_params(
-        self,
-        params: Union[
-            InternalStageParams,
-            S3ExternalStageParams,
-            S3CompatibleExternalStageParams,
-            GCSExternalStageParams,
-            AzureExternalStageParams,
-        ],
-    ) -> StageBuilder:
-        """Sets the stage parameters."""
-        self.stage_params = params
+    def build(self) -> Stage:
+        """Builds and returns a new Stage instance."""
+        if not self.name:
+            raise ValueError("Stage name must be set")
+
+        return Stage(
+            comment=self.comment,
+            directory_table_params=self.directory_table_params,
+            file_format=self.file_format,
+            is_create_if_not_exists=self.is_create_if_not_exists,
+            is_create_or_replace=self.is_create_or_replace,
+            is_temporary=self.is_temporary,
+            name=self.name,
+            stage_params=self.stage_params,
+            tags=self.tags,
+        )
+
+    def with_comment(self, comment: str) -> StageBuilder:
+        """Sets the stage comment."""
+        self.comment = comment
+        return self
+
+    def with_create_or_replace(self) -> StageBuilder:
+        """Sets the stage to be created or replaced."""
+        self.is_create_or_replace = True
+        return self
+
+    def with_create_if_not_exists(self) -> StageBuilder:
+        """Sets the stage to be created only if it doesn't exist."""
+        self.is_create_if_not_exists = True
         return self
 
     def with_directory_table_params(
@@ -338,9 +429,18 @@ class StageBuilder:
         self.file_format = file_format
         return self
 
-    def with_comment(self, comment: str) -> StageBuilder:
-        """Sets the stage comment."""
-        self.comment = comment
+    def with_stage_params(
+        self,
+        params: Union[
+            InternalStageParams,
+            S3ExternalStageParams,
+            S3CompatibleExternalStageParams,
+            GCSExternalStageParams,
+            AzureExternalStageParams,
+        ],
+    ) -> StageBuilder:
+        """Sets the stage parameters."""
+        self.stage_params = params
         return self
 
     def with_tag(self, key: str, value: str) -> StageBuilder:
@@ -348,34 +448,7 @@ class StageBuilder:
         self.tags[key] = value
         return self
 
-    def with_create_or_replace(self) -> StageBuilder:
-        """Sets the stage to be created or replaced."""
-        self.is_create_or_replace = True
-        return self
-
-    def with_create_if_not_exists(self) -> StageBuilder:
-        """Sets the stage to be created only if it doesn't exist."""
-        self.is_create_if_not_exists = True
-        return self
-
     def with_temporary(self) -> StageBuilder:
         """Sets the stage as temporary."""
         self.is_temporary = True
         return self
-
-    def build(self) -> Stage:
-        """Builds and returns a new Stage instance."""
-        if not self.name:
-            raise ValueError("Stage name must be set")
-
-        return Stage(
-            name=self.name,
-            stage_params=self.stage_params,
-            directory_table_params=self.directory_table_params,
-            file_format=self.file_format,
-            comment=self.comment,
-            tags=self.tags,
-            is_create_or_replace=self.is_create_or_replace,
-            is_create_if_not_exists=self.is_create_if_not_exists,
-            is_temporary=self.is_temporary,
-        )
