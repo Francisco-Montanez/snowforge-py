@@ -29,7 +29,7 @@ Simplify the creation and management of Snowflake objects and data pipeline proc
 
 
 ```bash
-pip install snowforge-py
+pip install snowforge
 ```
 
 
