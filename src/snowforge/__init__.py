@@ -9,7 +9,7 @@ from .stream import Stream, StreamBuilder
 from .table import Table, TableBuilder
 from .task import Task, TaskType, WarehouseSize
 
-__version__ = "0.1.0"
+__version__ = "0.1.0-alpha.1"
 
 __all__ = [
     "Forge",
