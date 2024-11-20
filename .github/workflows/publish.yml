@@ -4,15 +4,18 @@ on:
   push:
     tags:
       - 'v*'  # Trigger on version tags
-  workflow_dispatch:  # Allow manual triggering for testing
-
-permissions:
-  contents: read
-  id-token: write
+  workflow_dispatch:
 
 jobs:
-  test-build:
+  build-and-publish:
     runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/snowforge
+
+    permissions:
+      id-token: write
+      contents: read
 
     steps:
       - uses: actions/checkout@v4
@@ -30,7 +33,5 @@ jobs:
       - name: Build package
         run: hatch build
 
-      - name: Test package structure
-        run: |
-          python -m pip install dist/*.whl
-          python -c "import snowforge; print(snowforge.__version__)"
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
